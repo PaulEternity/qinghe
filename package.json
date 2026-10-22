@@ -1,0 +1,1 @@
+{"name":"qinghe-local","version":"0.1.0","private":true,"type":"module","description":"个人使用的命理与 AI 解读工作台","scripts":{"start":"node --env-file-if-exists=.env server.mjs","test":"node --test"},"engines":{"node":">=22.19"},"dependencies":{"lunar-javascript":"^1.7.7","iztro":"^2.5.0"}}
