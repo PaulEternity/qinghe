@@ -1,0 +1,29 @@
+{
+  "name": "qinghe-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "个人使用的命理与 AI 解读工作台",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit",
+    "db:start": "sh scripts/mysql-local.sh start",
+    "db:stop": "sh scripts/mysql-local.sh stop",
+    "db:status": "sh scripts/mysql-local.sh status",
+    "test:mysql": "MYSQL_INTEGRATION=1 node --env-file=.env --test mysql.integration.test.mjs",
+    "assets:tarot": "node scripts/download-tarot.mjs"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "dependencies": {
+    "iztro": "2.6.3",
+    "lunar-javascript": "1.7.7",
+    "mysql2": "^3.24.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
