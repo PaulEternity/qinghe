@@ -2,7 +2,11 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
+import { askModel } from './model.ts';
+export { askModel } from './model.ts';
 import { prepare, tools } from './engine.mjs';
+import { MysqlStore } from './store.ts';
 import { correctSolarTime } from './solar-time.ts';
 
 /** 返回 JSON，避免缓存带出生信息与对话的响应。 */
@@ -16,19 +20,6 @@ async function body(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
-/** 模型适配层：Key 不出服务端，不回显上游错误正文，不自动重试计费请求。 */
-export async function askModel(messages,{fetcher=fetch,env=process.env}={}) {
-  const base=env.MODEL_BASE_URL,key=env.MODEL_API_KEY,model=env.MODEL_NAME;
-  if(!base||!key||!model) return {configured:false};
-  const u=new URL(base);
-  if(!['http:','https:'].includes(u.protocol)||u.username||u.password) throw new Error('模型服务地址配置无效');
-  const response=await fetcher(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${key}`},body:JSON.stringify({model,messages,temperature:0.65,max_tokens:2500,stream:false}),signal:AbortSignal.timeout(90000)});
-  if(!response.ok) throw new Error(`模型服务返回 HTTP ${response.status}，请检查额度、模型名称和接口配置`);
-  const data=await response.json(), answer=data.choices?.[0]?.message?.content;
-  if(typeof answer!=='string'||!answer.trim()) throw new Error('模型没有返回文本，请检查接口兼容性');
-  return {configured:true,answer};
-}
-
 /** 组装经过验证的上下文和有限追问，不接受客户端伪造系统角色。 */
 export function messagesFor(record,history=[],image) {
   if(!Array.isArray(history)||history.length>16||history.some(m=>!m||!['user','assistant'].includes(m.role)||typeof m.content!=='string'||m.content.length>16000)) throw new Error('对话内容无效或过长，请新建一次解读');
@@ -37,7 +28,8 @@ export function messagesFor(record,history=[],image) {
 }
 
 /** 创建可测试的服务实例；严格静态白名单和本机来源检查限制代理暴露。 */
-export function createApp({model=askModel}={}) {
+export function createApp({model=askModel,store}={}) {
+  const pending=new Set();
   return http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
@@ -47,25 +39,94 @@ export function createApp({model=askModel}={}) {
     if(req.headers.origin && ![`http://${host}`].includes(req.headers.origin)) return json(res,403,{error:'不允许跨站请求'});
     const path=new URL(req.url,'http://localhost').pathname;
     try {
-      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools});
+      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools,storage:store?'mysql':'none'});
+      // 札记 API 只在持久化仓库可用时开放；测试实例可以显式不提供仓库。
+      if(path.startsWith('/api/notes')) {
+        if(!store)return json(res,503,{error:'请先配置 MySQL 持久化'});
+        if(req.method==='GET'&&path==='/api/notes')return json(res,200,{notes:await store.list()});
+        if(req.method==='POST') {
+          if(!req.headers['content-type']?.startsWith('application/json'))return json(res,415,{error:'需要 JSON 请求'});
+          const input=await body(req);
+          if(!input||typeof input!=='object')throw new Error('请求参数无效');
+          if(path==='/api/notes/import') {
+            if(!Array.isArray(input.notes)||input.notes.length>60)throw new Error('导入记录无效，每次最多 60 条');
+            // 先验证整批格式；数据库中途失败时可安全重试，按 ID 去重。
+            for(const note of input.notes)validateNote(note);
+            for(const note of input.notes)await store.insert(note);
+            return json(res,200,{notes:await store.list()});
+          }
+          if(path==='/api/notes/clear') {
+            if(input.confirm!=='delete-all'||pending.size)throw new Error('请确认清空，并等待当前解读完成');
+            await store.clear();return json(res,200,{ok:true});
+          }
+          if(path==='/api/notes/delete') {
+            if(typeof input.id!=='string'||pending.has(input.id))throw new Error('请等待当前解读完成后再删除');
+            await store.remove(input.id);return json(res,200,{ok:true});
+          }
+          if(path==='/api/notes/reveal') {
+            const note=await store.get(input.id);if(!note)throw new Error('札记不存在，请刷新');
+            const count=note.record.facts?.cards?.length||0;
+            if(!Array.isArray(input.revealed)||input.revealed.some(i=>!Number.isInteger(i)||i<0||i>=count))throw new Error('翻牌参数无效');
+            note.revealed=[...new Set(input.revealed)];return json(res,200,{note:await store.save(note)});
+          }
+        }
+        return json(res,404,{error:'札记接口不存在'});
+      }
       if(req.method==='POST'&&path==='/api/solar-time') {
         if(!req.headers['content-type']?.startsWith('application/json'))return json(res,415,{error:'需要 JSON 请求'});
         const input=await body(req);
         return json(res,200,correctSolarTime(input?.time,input?.enabled,input?.longitude));
       }
-      if(req.method==='POST'&&['/api/reading','/api/followup'].includes(path)) {
+      if(req.method==='POST'&&['/api/chart','/api/interpret','/api/reading','/api/followup'].includes(path)) {
         if(!req.headers['content-type']?.startsWith('application/json')) return json(res,415,{error:'需要 JSON 请求'});
         const input=await body(req);
         if(!input||typeof input!=='object') throw new Error('请求参数无效');
-        let record;
-        if(path==='/api/reading') record=prepare(input);
+        let record,note;
+        if(path==='/api/chart'||path==='/api/reading') record=prepare(input);
         else {
           // 追问复用原始排盘和牌面，避免重新抽取改变上下文。
           record=input.record;
           if(!record||!tools[record.tool]||typeof record.question!=='string'||typeof record.facts!=='object'||JSON.stringify(record).length>40000) throw new Error('原始解读记录无效');
         }
-        const result=await model(messagesFor(record,input.history||[],input.tool==='palm'?input.image:undefined));
-        return json(res,200,{record,...result});
+        if(store) {
+          if(path==='/api/chart'||path==='/api/reading')note=await store.insert({id:record.id,created:record.createdAt,record,answer:'',history:[],revealed:[],configured:false});
+          else {note=await store.get(record.id);if(!note)throw new Error('札记不存在，请先生成盘面');record=note.record;}
+        }
+        if(path==='/api/chart')return json(res,200,{record,note});
+        if(input.image&&(record.tool!=='palm'||typeof input.image!=='string'||input.image.length>4_200_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(input.image)))throw new Error('图片参数无效');
+        let history=input.history||[];
+        if(note) {
+          if(path==='/api/followup') {
+            const question=input.question||history.at(-1)?.content;
+            if(!note.answer||typeof question!=='string'||!question.trim()||question.length>4000)throw new Error('请先完成解读，并填写有效追问');
+            history=[{role:'assistant',content:note.answer},...note.history,{role:'user',content:question.trim()}];
+          } else {
+            if(note.answer)throw new Error('已有解读，请在札记中继续追问');
+            history=[];
+          }
+        }
+        const messages=messagesFor(record,history,input.image);
+        if(pending.has(record.id))throw new Error('此盘正在解读，请等待完成');
+        const requestId=randomUUID();
+        /** 只在完整回答落库后确认成功；断流和失败片段不会覆盖旧对话。 */
+        const complete=async result=>{
+          if(note&&result.answer){note=await store.save({...note,answer:path==='/api/followup'?note.answer:result.answer,history:path==='/api/followup'?[...note.history,history.at(-1),{role:'assistant',content:result.answer}]:note.history,configured:true,lastRequestId:requestId});}
+          return {record,note,requestId,parentQuestionId:record.id||null,...result};
+        };
+        pending.add(record.id);
+        try {
+        if(req.headers.accept?.includes('text/event-stream')) {
+          res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-store','X-Accel-Buffering':'no'});
+          const send=(event,data)=>{if(!res.destroyed)res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);};
+          const abort=new AbortController();res.on('close',()=>{if(!res.writableEnded)abort.abort();});
+          send('record',{record,requestId,parentQuestionId:record.id||null});
+          try{const result=await model(messages,{onDelta:text=>send('delta',{text}),signal:abort.signal});if(abort.signal.aborted)throw new Error('模型请求已中断');send('done',await complete(result));}
+          catch(error){send('error',{error:error.message?.startsWith('模型')?error.message:'解读或 MySQL 保存失败，请刷新札记确认后重试'});}
+          return res.end();
+        }
+        const result=await model(messages);
+        return json(res,200,await complete(result));
+        } finally {pending.delete(record.id);}
       }
       const files={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8']};
       if(req.method==='GET'&&files[path]) {const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});return res.end(await readFile(new URL(`./public/${name}`,import.meta.url)));}
@@ -76,5 +137,19 @@ export function createApp({model=askModel}={}) {
     }
   });
 }
-// 绑定环回地址；导入模块做测试时不自动启动服务。
-if(process.argv[1]===fileURLToPath(import.meta.url)) createApp().listen(Number(process.env.PORT||3187),'127.0.0.1',()=>console.log(`清和已启动：http://127.0.0.1:${process.env.PORT||3187}`));
+/** 校验浏览器旧札记；导入保持原有 ID、盘面和对话，不接受任意结构。 */
+function validateNote(note) {
+  if(!note||typeof note.id!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(note.id)||!note.record||!tools[note.record.tool]||typeof note.record.question!=='string'||!note.record.facts||typeof note.answer!=='string'||!Array.isArray(note.history)||!Array.isArray(note.revealed)||!Number.isFinite(Date.parse(note.created))||JSON.stringify(note).length>300000)throw new Error('旧札记数据无效，请先导出备份后检查');
+  messagesFor(note.record,note.history);
+  note.record.id=note.id;
+  // 白名单字段去除旧浏览器数据中可能夹带的图片或配置。
+  for(const key of Object.keys(note))if(!['id','created','record','answer','history','revealed','configured','lastRequestId'].includes(key))delete note[key];
+  delete note.record.image;
+}
+// 生产入口必须连接 MySQL 成功后才监听，避免把未持久化结果显示为已保存。
+if(process.argv[1]===fileURLToPath(import.meta.url)) {
+  const store=new MysqlStore();await store.init();
+  const app=createApp({store});
+  app.listen(Number(process.env.PORT||3187),'127.0.0.1',()=>console.log(`清和已启动：http://127.0.0.1:${process.env.PORT||3187}（MySQL 持久化）`));
+  for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>app.close(async()=>{await store.close();process.exit(0);}));
+}

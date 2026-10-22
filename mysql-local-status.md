@@ -1,17 +1,13 @@
-# 本机 MySQL 安装状态
+# 本机 MySQL 状态
 
-日期：2026-10-22。
+2026-10-22 已完成真实持久化接入。
 
-- 安装方式：Homebrew `mysql@8.4`。
-- 已安装版本：MySQL Server 8.4.13（Apple Silicon / arm64）。
-- 服务端目录：`/opt/homebrew/opt/mysql@8.4/bin`。
-- 数据目录：`/opt/homebrew/var/mysql`。
-- 原来仅安装了 mysql-client 9.7.1；保留原客户端及 PATH，不替换其全局命令。
-- 实际验证：独立 Socket、`--skip-networking`、关闭 MySQL X；执行 SELECT 返回版本 `8.4.13`、`@@skip_networking=1`、实际本机数据目录。随后 mysqladmin 正常关闭验证实例。
-- 未设置开机启动、未启动常驻数据库服务、未开放 TCP。
+- Homebrew MySQL Server 8.4.13；程序目录 `/opt/homebrew/opt/mysql@8.4/bin`，数据目录 `/opt/homebrew/var/mysql`。原有 9.7.1 客户端及 PATH 保持不变。
+- 仅监听 `127.0.0.1:3307`；关闭 MySQL X，未设置开机启动。
+- 数据库 `qinghe`，专用应用账号 `qinghe`，仅拥有本库 SELECT、INSERT、UPDATE、DELETE、CREATE 权限。root 已设置随机密码。
+- 应用凭据 `.env`、管理凭据 `.local/mysql-admin.cnf` 均为本机私有忽略文件；不要提交或打包。
+- `npm run db:start` 在当前终端常驻运行（另开终端启动应用），`npm run db:status` 检查，`npm run db:stop` 停止；`npm start` 启动应用。
+- `readings` 表保存原始问题、盘面与规则、翻牌状态、解读、追问和请求 ID；不保存原始照片或模型 API Key。
+- 真实 MySQL 集成测试使用模拟模型，通过 HTTP 验证写入、追问、应用实例关闭后重新连接读取、重复导入不覆盖、失败不改原文、过期版本拒绝及单条删除；命令 `npm run test:mysql`。
 
-Homebrew 已初始化默认数据目录，默认 root 账号尚未设密码。正式启用前应完成账号密码配置，并为清和创建仅访问自己数据库的应用账号；不要直接以无密码 root 接入应用。
-
-当前工程尚未接入数据库，历史记录仍是浏览器 localStorage，不能视为已有 MySQL 数据备份。本轮完成安装与真实本地启动/连接验证，下一阶段再做数据库表结构、应用账号和读写迁移。
-
-后续管理应显式使用 `/opt/homebrew/opt/mysql@8.4/bin/` 下的工具，以避免 PATH 中现有 9.7.1 客户端覆盖版本。不要复用其他工程或共享环境的数据源配置。
+数据库持久化不等于备份。可在“我的札记”导出文本；删除和清空无法恢复。旧浏览器札记可显式导入，原数据不会自动删除。
