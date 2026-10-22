@@ -10,6 +10,7 @@ import { MysqlStore } from './store.ts';
 import { correctSolarTime } from './solar-time.ts';
 import { AccessControl } from './access.mjs';
 import { UserAccounts } from './accounts.mjs';
+import { deploymentConfig } from './deployment.mjs';
 
 /** 返回 JSON，避免缓存带出生信息与对话的响应。 */
 function json(res,status,data) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data)); }
@@ -30,15 +31,18 @@ export function messagesFor(record,history=[],image) {
 }
 
 /** 创建可测试的服务实例；严格静态白名单和本机来源检查限制代理暴露。 */
-export function createApp({model=askModel,store,auth=new AccessControl(),accounts=new UserAccounts({pool:store?.pool})}={}) {
+export function createApp({model=askModel,store,deployment=deploymentConfig(),auth=new AccessControl({secure:deployment.cloud}),accounts=new UserAccounts({pool:store?.pool,secure:deployment.cloud})}={}) {
   const pending=new Map();
   return http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    if(deployment.cloud)res.setHeader('Strict-Transport-Security','max-age=31536000');
+    if(req.method==='GET'&&req.url==='/healthz')return json(res,200,{ok:true});
     const host=req.headers.host||'';
-    if(!/^(127\.0\.0\.1|localhost):\d+$/.test(host)) return json(res,403,{error:'仅允许本机访问'});
-    if(req.headers.origin && ![`http://${host}`].includes(req.headers.origin)) return json(res,403,{error:'不允许跨站请求'});
+    if(deployment.cloud?host!==deployment.host:!/^(127\.0\.0\.1|localhost):\d+$/.test(host)) return json(res,403,{error:'访问地址不允许'});
+    const origin=deployment.cloud?deployment.origin:`http://${host}`;
+    if((req.headers.origin&&req.headers.origin!==origin)||(deployment.cloud&&req.method==='POST'&&req.headers.origin!==origin))return json(res,403,{error:'不允许跨站请求'});
     const path=new URL(req.url,'http://localhost').pathname;
     try {
       const account=path.startsWith('/api/')?await accounts.current(req):null;
@@ -116,6 +120,7 @@ export function createApp({model=askModel,store,auth=new AccessControl(),account
         }
         const messages=messagesFor(record,history,input.image);
         if(pending.has(record.id))throw new Error('此盘正在解读，请等待完成');
+        if(deployment.cloud&&pending.size>=2)return json(res,429,{error:'当前解读请求较多，请稍后重试'});
         const requestId=randomUUID();
         /** 只在完整回答落库后确认成功；断流和失败片段不会覆盖旧对话。 */
         const complete=async result=>{
@@ -164,10 +169,13 @@ function validateNote(note) {
 }
 // 生产入口必须连接 MySQL 成功后才监听，避免把未持久化结果显示为已保存。
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
+  const deployment=deploymentConfig();
   const store=new MysqlStore();await store.init();
-  const accounts=new UserAccounts({pool:store.pool});await accounts.init();
-  const auth=await AccessControl.open(fileURLToPath(new URL('./.local/',import.meta.url)));
-  const app=createApp({store,auth,accounts});
-  app.listen(Number(process.env.PORT||3187),'127.0.0.1',()=>console.log(`清和已启动：http://127.0.0.1:${process.env.PORT||3187}（MySQL 持久化）`));
+  const accounts=new UserAccounts({pool:store.pool,secure:deployment.cloud});await accounts.init();
+  const auth=deployment.cloud
+    ?await AccessControl.openDatabase(store.pool,{password:process.env.ADMIN_INITIAL_PASSWORD,code:process.env.AI_INITIAL_CODE})
+    :await AccessControl.open(fileURLToPath(new URL('./.local/',import.meta.url)));
+  const app=createApp({store,auth,accounts,deployment});
+  app.listen(deployment.port,deployment.bind,()=>console.log(`清和已启动：${deployment.origin||`http://127.0.0.1:${deployment.port}`}（MySQL 持久化）`));
   for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>app.close(async()=>{await store.close();process.exit(0);}));
 }

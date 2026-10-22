@@ -1,6 +1,7 @@
 import { randomBytes, randomInt, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
+import { sessionCookie } from './session-cookie.mjs';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 const hash = (text, salt = randomBytes(16).toString('hex')) => ({ salt, digest: scryptSync(text, salt, 32).toString('hex') });
@@ -9,10 +10,11 @@ const tokenHash = token => createHash('sha256').update(token).digest('hex');
 
 /** Local single-admin account; AI permission is a separate, fixed five-minute session. */
 export class AccessControl {
-  constructor({ state = null, now = Date.now, persist = async () => {} } = {}) {
+  constructor({ state = null, now = Date.now, persist = async () => {}, secure = false } = {}) {
     this.state = state;
     this.now = now;
     this.persist = persist;
+    this.secure = secure;
     this.sessions = new Map();
     this.failures = new Map();
     this.updating = false;
@@ -39,6 +41,29 @@ export class AccessControl {
     } });
   }
 
+  /** Ephemeral web hosts keep administrator settings in the database, never local files. */
+  static async openDatabase(pool, { password, code, secure = true } = {}) {
+    await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (
+      id VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+      value JSON NOT NULL, revision INT UNSIGNED NOT NULL DEFAULT 1
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    let [rows] = await pool.execute('SELECT value,revision FROM app_settings WHERE id=?', ['access']);
+    if (!rows.length) {
+      if (typeof password !== 'string' || password.length < 12 || password.length > 128 || typeof code !== 'string' || !/^\d{6}$/.test(code)) throw new Error('首次云端启动需配置 ADMIN_INITIAL_PASSWORD（12—128 位）及 AI_INITIAL_CODE（六位数字）');
+      const state = { username: 'admin', password: hash(password), code: hash(code) };
+      await pool.execute('INSERT IGNORE INTO app_settings (id,value) VALUES (?,?)', ['access', JSON.stringify(state)]);
+      [rows] = await pool.execute('SELECT value,revision FROM app_settings WHERE id=?', ['access']);
+    }
+    const state = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
+    if (state.username !== 'admin' || ![state.password,state.code].every(v=>v&&/^[a-f0-9]{32}$/.test(v.salt)&&/^[a-f0-9]{64}$/.test(v.digest))) throw new Error('云端管理员配置损坏');
+    let revision = rows[0].revision;
+    return new AccessControl({ state, secure, persist: async next => {
+      const [result] = await pool.execute('UPDATE app_settings SET value=?,revision=revision+1 WHERE id=? AND revision=?', [JSON.stringify(next), 'access', revision]);
+      if (result.affectedRows !== 1) throw new Error('管理员配置已被修改，请重启服务后重试');
+      revision++;
+    } });
+  }
+
   session(req, role) {
     const name = role === 'admin' ? 'qinghe_admin' : 'qinghe_ai';
     const cookie = (req.headers.cookie || '').split(';').map(v => v.trim()).find(v => v.startsWith(`${name}=`));
@@ -58,7 +83,7 @@ export class AccessControl {
     const seconds = role === 'admin' ? 1800 : 300;
     const expiresAt = this.now() + seconds * 1000;
     this.sessions.set(tokenHash(token), { role, expiresAt, identity });
-    res.setHeader('Set-Cookie', `${role === 'admin' ? 'qinghe_admin' : 'qinghe_ai'}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${seconds}`);
+    res.setHeader('Set-Cookie', sessionCookie(role === 'admin' ? 'qinghe_admin' : 'qinghe_ai', token, seconds, this.secure));
     return expiresAt;
   }
 
@@ -99,7 +124,7 @@ export class AccessControl {
     if (!admin) return send(401, { error: '请先登录管理员账号' });
     if (path === '/api/access/logout') {
       this.sessions.delete(admin.key);
-      res.setHeader('Set-Cookie', 'qinghe_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
+      res.setHeader('Set-Cookie', sessionCookie('qinghe_admin','',0,this.secure));
       return send(200, { ok: true });
     }
     if (!['/api/access/code', '/api/access/password'].includes(path)) return send(404, { error: '账号接口不存在' });

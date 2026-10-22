@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, scrypt, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
+import { sessionCookie } from './session-cookie.mjs';
 
 const derive = promisify(scrypt);
 const digest = token => createHash('sha256').update(token).digest('hex');
@@ -8,9 +9,10 @@ const tokenOf = req => (req.headers.cookie || '').split(';').map(v => v.trim()).
 
 /** User identity is separate from administrator authority and the shared AI code. */
 export class UserAccounts {
-  constructor({ pool, now = Date.now } = {}) {
+  constructor({ pool, now = Date.now, secure = false } = {}) {
     this.pool = pool;
     this.now = now;
+    this.secure = secure;
     this.attempts = new Map();
     this.hashing = 0;
   }
@@ -61,9 +63,9 @@ export class UserAccounts {
     const previous = tokenOf(req);
     if (previous && /^[a-f0-9]{64}$/.test(previous)) await this.pool.execute('DELETE FROM user_sessions WHERE token_hash=?', [digest(previous)]);
     res.setHeader('Set-Cookie', [
-      `qinghe_user=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,
-      'qinghe_ai=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0',
-      'qinghe_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'
+      sessionCookie('qinghe_user',token,86400,this.secure),
+      sessionCookie('qinghe_ai','',0,this.secure),
+      sessionCookie('qinghe_admin','',0,this.secure)
     ]);
   }
 
@@ -94,7 +96,7 @@ export class UserAccounts {
       if (token && /^[a-f0-9]{64}$/.test(token)) await this.pool.execute('DELETE FROM user_sessions WHERE token_hash=?', [digest(token)]);
       const adminSession = admin.session(req, 'admin');
       if (adminSession) admin.sessions.delete(adminSession.key);
-      res.setHeader('Set-Cookie', ['qinghe_user=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0', 'qinghe_ai=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0', 'qinghe_admin=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0']);
+      res.setHeader('Set-Cookie', [sessionCookie('qinghe_user','',0,this.secure), sessionCookie('qinghe_ai','',0,this.secure), sessionCookie('qinghe_admin','',0,this.secure)]);
       return send(200, { ok: true });
     }
     if (!['/api/account/register', '/api/account/login'].includes(path)) return send(404, { error: '用户接口不存在' });
@@ -109,7 +111,7 @@ export class UserAccounts {
         const token = tokenOf(req);
         if (token && /^[a-f0-9]{64}$/.test(token)) await this.pool.execute('DELETE FROM user_sessions WHERE token_hash=?', [digest(token)]);
         const adminCookie = res.getHeader('Set-Cookie');
-        res.setHeader('Set-Cookie', [adminCookie, 'qinghe_user=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0', 'qinghe_ai=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0']);
+        res.setHeader('Set-Cookie', [adminCookie, sessionCookie('qinghe_user','',0,this.secure), sessionCookie('qinghe_ai','',0,this.secure)]);
         return send(200, { admin: true, user: null });
       }
       return send(outcome.status, outcome.result);

@@ -20,8 +20,10 @@ export class MysqlStore {
   /** 使用专用应用账号连接；连接上限适配本机单体。 */
   constructor(env: NodeJS.ProcessEnv = process.env) {
     if (!env.MYSQL_USER || !env.MYSQL_PASSWORD || !env.MYSQL_DATABASE) throw new Error('请先配置 MySQL 专用账号和数据库');
-    if (!['127.0.0.1','localhost'].includes(env.MYSQL_HOST || '127.0.0.1')) throw new Error('MySQL 仅允许连接本机');
-    this.pool = mysql.createPool({host:env.MYSQL_HOST||'127.0.0.1',port:Number(env.MYSQL_PORT||3307),user:env.MYSQL_USER,password:env.MYSQL_PASSWORD,database:env.MYSQL_DATABASE,connectionLimit:4,charset:'utf8mb4',timezone:'Z',connectTimeout:5000});
+    const remote = !['127.0.0.1','localhost'].includes(env.MYSQL_HOST || '127.0.0.1');
+    if (remote && env.APP_MODE !== 'cloud') throw new Error('MySQL 远程连接需要 APP_MODE=cloud');
+    if ((remote || env.APP_MODE === 'cloud') && env.MYSQL_SSL !== 'true') throw new Error('云端 MySQL 必须设置 MYSQL_SSL=true');
+    this.pool = mysql.createPool({host:env.MYSQL_HOST||'127.0.0.1',port:Number(env.MYSQL_PORT||3307),user:env.MYSQL_USER,password:env.MYSQL_PASSWORD,database:env.MYSQL_DATABASE,connectionLimit:4,charset:'utf8mb4',timezone:'Z',connectTimeout:10000,ssl:env.MYSQL_SSL==='true'?{rejectUnauthorized:true,minVersion:'TLSv1.2',verifyIdentity:true}:undefined});
   }
   /** 建立缺失的表；数据库不可用时启动失败，不降级成浏览器存储。 */
   async init() {

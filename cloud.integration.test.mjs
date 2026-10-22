@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { MysqlStore } from './store.ts';
+import { AccessControl } from './access.mjs';
+import { UserAccounts } from './accounts.mjs';
+import { createApp } from './server.mjs';
+import { deploymentConfig } from './deployment.mjs';
+import { httpFetch as fetch } from './support/http-request.mjs';
+
+test('云端管理员改码和改密持久化，重启不被初始环境变量覆盖', { skip: process.env.MYSQL_INTEGRATION !== '1' }, async t => {
+  const database = process.env.MYSQL_TEST_DATABASE || `${process.env.MYSQL_DATABASE}_test`;
+  assert.match(database, /_test$/);
+  const store = new MysqlStore({ ...process.env, APP_MODE: 'local', MYSQL_DATABASE: database });
+  await store.init();
+  const accounts = new UserAccounts({ pool: store.pool, secure: true });await accounts.init();
+  const initial = { password: 'initial-admin-password', code: '012345' };
+  const auth = await AccessControl.openDatabase(store.pool, initial);
+  const stale = await AccessControl.openDatabase(store.pool, initial);
+  const deployment = deploymentConfig({ APP_MODE: 'cloud', PUBLIC_ORIGIN: 'https://qinghe.onrender.com' });
+  let server;
+  t.after(async () => {
+    server?.close();server?.closeAllConnections();
+    await store.pool.execute('DELETE FROM app_settings WHERE id=?', ['access']);
+    await store.close();
+  });
+  const start = async access => {
+    server = createApp({ store, accounts, auth: access, deployment });server.listen(0, '127.0.0.1');await once(server, 'listening');
+    return `http://127.0.0.1:${server.address().port}`;
+  };
+  let base = await start(auth);
+  const post = (path, input, cookie = '') => fetch(base + path, { method: 'POST', headers: { Host: deployment.host, Origin: deployment.origin, 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(input) });
+  const login = await post('/api/account/login', { username: 'admin', password: initial.password });
+  assert.equal(login.status, 200);assert.ok(login.headers.getSetCookie().every(value=>value.endsWith('; Secure')));
+  let cookie = login.headers.getSetCookie()[0].split(';')[0];
+  assert.equal((await post('/api/access/code', { code: '001234' }, cookie)).status, 200);
+  assert.equal((await post('/api/access/password', { currentPassword: initial.password, password: 'updated-admin-password' }, cookie)).status, 200);
+  const expected = auth.state;
+  await assert.rejects(stale.persist(stale.state), /已被修改/);
+  server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
+  const restored = await AccessControl.openDatabase(store.pool, initial);
+  assert.deepEqual(restored.state, expected);
+  base = await start(restored);
+  assert.equal((await post('/api/account/login', { username: 'admin', password: initial.password })).status, 401);
+  const relogin = await post('/api/account/login', { username: 'admin', password: 'updated-admin-password' });
+  assert.equal(relogin.status, 200);
+  cookie = relogin.headers.getSetCookie()[0].split(';')[0];
+  const logout = await post('/api/account/logout', {}, cookie);
+  assert.equal(logout.status, 200);assert.ok(logout.headers.getSetCookie().every(value=>value.endsWith('; Secure')));
+  const [rows] = await store.pool.execute('SELECT value FROM app_settings WHERE id=?', ['access']);
+  assert.ok(!JSON.stringify(rows).includes('updated-admin-password') && !JSON.stringify(rows).includes('001234'));
+});
