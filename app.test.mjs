@@ -1,3 +1,4 @@
+import { testAccounts } from './support/auth-fixture.mjs';
 /** 验证计算边界、真实模型协议以及无密钥时的 HTTP 行为；不调用收费 API。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -57,7 +58,7 @@ test('追问保留原盘且拒绝系统角色与过长历史',()=>{
 });
 // 真实本机 HTTP 验证表单接口与跨站拦截，无任何外部模型调用。
 test('本机端到端：排盘、缺参、静态白名单、跨站拒绝',async()=>{
-  const server=createApp({auth:{authorized:()=>true,handle:async()=>false},model:async()=>({configured:false})});server.listen(0,'127.0.0.1');await once(server,'listening');
+  const server=createApp({accounts:testAccounts,auth:{authorized:()=>true,handle:async()=>false},model:async()=>({configured:false})});server.listen(0,'127.0.0.1');await once(server,'listening');
   const base=`http://127.0.0.1:${server.address().port}`;
   try{
     assert.equal((await fetch(base)).status,200);

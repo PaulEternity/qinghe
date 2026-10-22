@@ -1,3 +1,4 @@
+import { showAccount } from './account.js';
 let verification = null;
 
 async function request(path, input) {
@@ -35,6 +36,10 @@ export async function accessFetch(path, options) {
   const response = await fetch(path, options);
   if (response.status !== 401) return response;
   const error = await response.clone().json().catch(() => ({}));
+  if (error.code === 'LOGIN_REQUIRED') {
+    window.dispatchEvent(new Event('account-required'));
+    throw new Error('请先登录用户账号');
+  }
   if (error.code !== 'AI_ACCESS_REQUIRED') return response;
   await verifyCode();
   options?.signal?.throwIfAborted();
@@ -43,14 +48,14 @@ export async function accessFetch(path, options) {
 
 /** Separate administrator account; the shared AI code grants no administrator access. */
 export async function adminPage(main) {
-  main.innerHTML = '<section class="panel"><h2>管理员账号</h2><p>正在检查登录状态…</p></section>';
+  main.innerHTML = '<section class="panel"><p>正在验证登录身份…</p></section>';
   const hash = location.hash;
   try {
-    const status = await request('/api/access/status');
+    const status = await request('/api/account/status');
     if (location.hash !== hash) return;
-    main.innerHTML = status.admin
-      ? `<div class="page-head"><h2>管理员设置</h2><p>账号：admin。只有管理员可以修改 AI 访问码；访问码不能用于管理员登录。</p></div><div class="workspace"><section class="panel"><form id="change-code"><h3>修改 AI 访问码</h3><label for="new-code">新的六位数字访问码</label><input id="new-code" name="code" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off" required><label for="confirm-code">再次输入访问码</label><input id="confirm-code" name="confirm" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required><p class="help">保存后，所有用户现有的 5 分钟验证立即失效。每次验证的有效期固定为 5 分钟。</p><button class="primary">保存访问码</button><p role="status"></p></form></section><section class="panel"><form id="change-password"><h3>修改管理员密码</h3><label for="current-password">当前密码</label><input id="current-password" name="currentPassword" type="password" autocomplete="current-password" maxlength="128" required><label for="new-password">新密码（12—128 位）</label><input id="new-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><label for="confirm-password">再次输入新密码</label><input id="confirm-password" name="confirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><p class="help">修改成功后，所有管理员会话退出，需要重新登录。</p><button class="primary">保存管理员密码</button><p role="status"></p></form></section></div><button id="admin-logout" class="secondary">退出管理员账号</button>`
-      : `<div class="page-head"><h2>管理员登录</h2><p>登录后可以修改六位 AI 访问码和管理员密码。</p></div><section class="panel"><form id="admin-login"><label for="admin-username">账号</label><input id="admin-username" name="username" value="admin" autocomplete="username" required><label for="admin-password">管理员密码</label><input id="admin-password" name="password" type="password" autocomplete="current-password" maxlength="128" required><div class="form-actions"><button class="primary">登录</button></div><p role="status"></p></form></section>`;
+    showAccount(status.user, status.admin);
+    if (!status.admin) { location.hash = '#account'; return; }
+    main.innerHTML = `<div class="page-head"><h2>管理员设置</h2><p>账号：admin。只有管理员可以修改 AI 访问码；访问码不能用于管理员登录。</p></div><div class="workspace"><section class="panel"><form id="change-code"><h3>修改 AI 访问码</h3><label for="new-code">新的六位数字访问码</label><input id="new-code" name="code" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="off" required><label for="confirm-code">再次输入访问码</label><input id="confirm-code" name="confirm" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required><p class="help">保存后，所有用户现有的 5 分钟验证立即失效。每次验证的有效期固定为 5 分钟。</p><button class="primary">保存访问码</button><p role="status"></p></form></section><section class="panel"><form id="change-password"><h3>修改管理员密码</h3><label for="current-password">当前密码</label><input id="current-password" name="currentPassword" type="password" autocomplete="current-password" maxlength="128" required><label for="new-password">新密码（12—128 位）</label><input id="new-password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><label for="confirm-password">再次输入新密码</label><input id="confirm-password" name="confirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><p class="help">修改成功后，所有管理员会话退出，需要重新登录。</p><button class="primary">保存管理员密码</button><p role="status"></p></form></section></div><button id="admin-logout" class="secondary">退出管理员账号</button>`;
     const bind = (id, path, success) => {
       const form = document.getElementById(id);
       if (!form) return;
@@ -66,12 +71,29 @@ export async function adminPage(main) {
         finally { button.disabled = false; }
       };
     };
-    bind('admin-login', '/api/access/login');
     bind('change-code', '/api/access/code', '访问码已更新，旧验证已全部失效。请将新码告知需要使用 AI 的用户。');
     bind('change-password', '/api/access/password');
     document.getElementById('admin-logout')?.addEventListener('click', async () => {
       try { await request('/api/access/logout', {}); if (location.hash === hash) await adminPage(main); }
       catch (error) { alert(error.message); }
     });
+    if (status.admin) {
+      const legacy = document.createElement('section');
+      legacy.className = 'panel legacy-panel';
+      legacy.innerHTML = '<form id="legacy-migration"><h3>迁移旧札记</h3><p id="legacy-count">正在检查未归属记录…</p><label for="legacy-username">接收用户的用户名</label><input id="legacy-username" name="username" minlength="3" maxlength="32" required><label class="confirm-legacy"><input type="checkbox" required> 确认将全部未归属札记分配给该用户</label><p class="help">接收用户需先注册。已归属其他用户的记录不会移动。</p><button class="primary">确认迁移</button><p role="status"></p></form>';
+      main.append(legacy);
+      try { const result = await request('/api/account/legacy'); legacy.querySelector('#legacy-count').textContent = `未归属旧札记：${result.count} 条`; }
+      catch (error) { legacy.querySelector('#legacy-count').textContent = error.message; }
+      legacy.querySelector('form').onsubmit = async event => {
+        event.preventDefault();
+        const button = legacy.querySelector('button');button.disabled = true;
+        try {
+          const result = await request('/api/account/legacy', { username: legacy.querySelector('[name=username]').value, confirm: 'assign-legacy' });
+          legacy.querySelector('[role=status]').textContent = `已迁移 ${result.assigned} 条札记`;
+          legacy.querySelector('#legacy-count').textContent = '未归属旧札记：0 条';
+        } catch (error) { legacy.querySelector('[role=status]').textContent = error.message; }
+        finally { button.disabled = false; }
+      };
+    }
   } catch (error) { if (location.hash === hash) main.textContent = error.message; }
 }

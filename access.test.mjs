@@ -1,3 +1,4 @@
+import { testAccounts } from './support/auth-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -16,7 +17,7 @@ async function fixture(t) {
   const password = credentials.match(/管理员密码：(\S+)/)[1];
   const code = credentials.match(/初始 AI 访问码：(\d{6})/)[1];
   let calls = 0;
-  const server = createApp({ auth, model: async (_, options) => { calls++; options?.onDelta('模拟回答'); return { configured: true, answer: '模拟回答' }; } });
+  const server = createApp({accounts:testAccounts, auth, model: async (_, options) => { calls++; options?.onDelta('模拟回答'); return { configured: true, answer: '模拟回答' }; } });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}`;

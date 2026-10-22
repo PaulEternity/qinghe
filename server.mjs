@@ -9,6 +9,7 @@ import { prepare, tools } from './engine.mjs';
 import { MysqlStore } from './store.ts';
 import { correctSolarTime } from './solar-time.ts';
 import { AccessControl } from './access.mjs';
+import { UserAccounts } from './accounts.mjs';
 
 /** 返回 JSON，避免缓存带出生信息与对话的响应。 */
 function json(res,status,data) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data)); }
@@ -29,8 +30,8 @@ export function messagesFor(record,history=[],image) {
 }
 
 /** 创建可测试的服务实例；严格静态白名单和本机来源检查限制代理暴露。 */
-export function createApp({model=askModel,store,auth=new AccessControl()}={}) {
-  const pending=new Set();
+export function createApp({model=askModel,store,auth=new AccessControl(),accounts=new UserAccounts({pool:store?.pool})}={}) {
+  const pending=new Map();
   return http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
@@ -40,13 +41,18 @@ export function createApp({model=askModel,store,auth=new AccessControl()}={}) {
     if(req.headers.origin && ![`http://${host}`].includes(req.headers.origin)) return json(res,403,{error:'不允许跨站请求'});
     const path=new URL(req.url,'http://localhost').pathname;
     try {
+      const account=path.startsWith('/api/')?await accounts.current(req):null;
+      req.user=account?.user;req.userSessionKey=account?.sessionKey;
+      if(await accounts.handle(req,res,path,body,json,auth))return;
+      if((path.startsWith('/api/notes')||['/api/chart','/api/interpret','/api/reading','/api/followup','/api/access/verify'].includes(path))&&!req.user)return json(res,401,{code:'LOGIN_REQUIRED',error:'请先注册或登录用户账号'});
+      const userId=req.user?.id;
       if(await auth.handle(req,res,path,body,json))return;
       if(req.method==='POST'&&['/api/interpret','/api/reading','/api/followup'].includes(path)&&!auth.authorized(req))return json(res,401,{code:'AI_ACCESS_REQUIRED',error:'请先验证六位数字 AI 访问码，验证后 5 分钟内有效'});
-      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools,storage:store?'mysql':'none'});
+      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
       // 札记 API 只在持久化仓库可用时开放；测试实例可以显式不提供仓库。
       if(path.startsWith('/api/notes')) {
         if(!store)return json(res,503,{error:'请先配置 MySQL 持久化'});
-        if(req.method==='GET'&&path==='/api/notes')return json(res,200,{notes:await store.list()});
+        if(req.method==='GET'&&path==='/api/notes')return json(res,200,{notes:await store.list(userId)});
         if(req.method==='POST') {
           if(!req.headers['content-type']?.startsWith('application/json'))return json(res,415,{error:'需要 JSON 请求'});
           const input=await body(req);
@@ -55,22 +61,22 @@ export function createApp({model=askModel,store,auth=new AccessControl()}={}) {
             if(!Array.isArray(input.notes)||input.notes.length>60)throw new Error('导入记录无效，每次最多 60 条');
             // 先验证整批格式；数据库中途失败时可安全重试，按 ID 去重。
             for(const note of input.notes)validateNote(note);
-            for(const note of input.notes)await store.insert(note);
-            return json(res,200,{notes:await store.list()});
+            for(const note of input.notes)await store.insert(note,userId);
+            return json(res,200,{notes:await store.list(userId)});
           }
           if(path==='/api/notes/clear') {
-            if(input.confirm!=='delete-all'||pending.size)throw new Error('请确认清空，并等待当前解读完成');
-            await store.clear();return json(res,200,{ok:true});
+            if(input.confirm!=='delete-all'||[...pending.values()].includes(userId))throw new Error('请确认清空，并等待当前解读完成');
+            await store.clear(userId);return json(res,200,{ok:true});
           }
           if(path==='/api/notes/delete') {
             if(typeof input.id!=='string'||pending.has(input.id))throw new Error('请等待当前解读完成后再删除');
-            await store.remove(input.id);return json(res,200,{ok:true});
+            await store.remove(input.id,userId);return json(res,200,{ok:true});
           }
           if(path==='/api/notes/reveal') {
-            const note=await store.get(input.id);if(!note)throw new Error('札记不存在，请刷新');
+            const note=await store.get(input.id,userId);if(!note)throw new Error('札记不存在，请刷新');
             const count=note.record.facts?.cards?.length||0;
             if(!Array.isArray(input.revealed)||input.revealed.some(i=>!Number.isInteger(i)||i<0||i>=count))throw new Error('翻牌参数无效');
-            note.revealed=[...new Set(input.revealed)];return json(res,200,{note:await store.save(note)});
+            note.revealed=[...new Set(input.revealed)];return json(res,200,{note:await store.save(note,userId)});
           }
         }
         return json(res,404,{error:'札记接口不存在'});
@@ -92,8 +98,8 @@ export function createApp({model=askModel,store,auth=new AccessControl()}={}) {
           if(!record||!tools[record.tool]||typeof record.question!=='string'||typeof record.facts!=='object'||JSON.stringify(record).length>40000) throw new Error('原始解读记录无效');
         }
         if(store) {
-          if(path==='/api/chart'||path==='/api/reading')note=await store.insert({id:record.id,created:record.createdAt,record,answer:'',history:[],revealed:[],configured:false});
-          else {note=await store.get(record.id);if(!note)throw new Error('札记不存在，请先生成盘面');record=note.record;}
+          if(path==='/api/chart'||path==='/api/reading')note=await store.insert({id:record.id,created:record.createdAt,record,answer:'',history:[],revealed:[],configured:false},userId);
+          else {note=await store.get(record.id,userId);if(!note)throw new Error('札记不存在，请先生成盘面');record=note.record;}
         }
         if(path==='/api/chart')return json(res,200,{record,note});
         if(input.image&&(record.tool!=='palm'||typeof input.image!=='string'||input.image.length>4_200_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(input.image)))throw new Error('图片参数无效');
@@ -113,10 +119,10 @@ export function createApp({model=askModel,store,auth=new AccessControl()}={}) {
         const requestId=randomUUID();
         /** 只在完整回答落库后确认成功；断流和失败片段不会覆盖旧对话。 */
         const complete=async result=>{
-          if(note&&result.answer){note=await store.save({...note,answer:path==='/api/followup'?note.answer:result.answer,history:path==='/api/followup'?[...note.history,history.at(-1),{role:'assistant',content:result.answer}]:note.history,configured:true,lastRequestId:requestId});}
+          if(note&&result.answer){note=await store.save({...note,answer:path==='/api/followup'?note.answer:result.answer,history:path==='/api/followup'?[...note.history,history.at(-1),{role:'assistant',content:result.answer}]:note.history,configured:true,lastRequestId:requestId},userId);}
           return {record,note,requestId,parentQuestionId:record.id||null,...result};
         };
-        pending.add(record.id);
+        pending.set(record.id,userId);
         try {
         if(req.headers.accept?.includes('text/event-stream')) {
           res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-store','X-Accel-Buffering':'no'});
@@ -138,7 +144,7 @@ export function createApp({model=askModel,store,auth=new AccessControl()}={}) {
         catch(error){if(error.code==='ENOENT')return json(res,404,{error:'牌图不存在'});throw error;}
         res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=86400'});return res.end(image);
       }
-      const files={'/':['index.html','text/html; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/account.js':['account.js','text/javascript; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg'],'/assets/coins/qianlong-obverse.jpg':['assets/coins/qianlong-obverse.jpg','image/jpeg'],'/assets/coins/qianlong-reverse.jpg':['assets/coins/qianlong-reverse.jpg','image/jpeg']};
       if(req.method==='GET'&&files[path]) {const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});return res.end(await readFile(new URL(`./public/${name}`,import.meta.url)));}
       json(res,404,{error:'页面不存在'});
     } catch(error) {
@@ -159,8 +165,9 @@ function validateNote(note) {
 // 生产入口必须连接 MySQL 成功后才监听，避免把未持久化结果显示为已保存。
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
   const store=new MysqlStore();await store.init();
+  const accounts=new UserAccounts({pool:store.pool});await accounts.init();
   const auth=await AccessControl.open(fileURLToPath(new URL('./.local/',import.meta.url)));
-  const app=createApp({store,auth});
+  const app=createApp({store,auth,accounts});
   app.listen(Number(process.env.PORT||3187),'127.0.0.1',()=>console.log(`清和已启动：http://127.0.0.1:${process.env.PORT||3187}（MySQL 持久化）`));
   for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>app.close(async()=>{await store.close();process.exit(0);}));
 }

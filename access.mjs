@@ -46,17 +46,18 @@ export class AccessControl {
     if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
     const key = tokenHash(token), session = this.sessions.get(key);
     if (!session || session.role !== role) return null;
+    if (role === 'ai' && session.identity !== (req.userSessionKey || null)) return null;
     if (session.expiresAt <= this.now()) { this.sessions.delete(key); return null; }
     return { ...session, key };
   }
 
-  issue(res, role) {
+  issue(res, role, identity = null) {
     for (const [key, value] of this.sessions) if (value.expiresAt <= this.now()) this.sessions.delete(key);
     if (this.sessions.size >= 1000) this.sessions.delete(this.sessions.keys().next().value);
     const token = randomBytes(32).toString('hex');
     const seconds = role === 'admin' ? 1800 : 300;
     const expiresAt = this.now() + seconds * 1000;
-    this.sessions.set(tokenHash(token), { role, expiresAt });
+    this.sessions.set(tokenHash(token), { role, expiresAt, identity });
     res.setHeader('Set-Cookie', `${role === 'admin' ? 'qinghe_admin' : 'qinghe_ai'}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${seconds}`);
     return expiresAt;
   }
@@ -92,7 +93,7 @@ export class AccessControl {
         return send(401, { error: role === 'admin' ? '账号或密码不正确' : '请输入正确的六位数字访问码' });
       }
       this.failures.delete(role);
-      return send(200, { ok: true, expiresAt: this.issue(res, role) });
+      return send(200, { ok: true, expiresAt: this.issue(res, role, req.userSessionKey || null) });
     }
     const admin = this.session(req, 'admin');
     if (!admin) return send(401, { error: '请先登录管理员账号' });

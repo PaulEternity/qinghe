@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bronze" x2=".8" y2="1">
+      <stop stop-color="#ebd395"/><stop offset=".32" stop-color="#b59350"/><stop offset=".65" stop-color="#8e713d"/><stop offset="1" stop-color="#c3a666"/>
+    </linearGradient>
+    <filter id="patina"><feTurbulence baseFrequency=".35" numOctaves="3" seed="8"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".16"/></feComponentTransfer><feBlend in="SourceGraphic" mode="multiply"/></filter>
+    <mask id="hole"><rect width="128" height="128" fill="white"/><rect x="51" y="51" width="26" height="26" fill="black"/></mask>
+  </defs>
+  <g mask="url(#hole)">
+    <circle cx="64" cy="64" r="62" fill="url(#bronze)" stroke="#69502c" stroke-width="3"/>
+    <circle cx="64" cy="64" r="57" fill="none" stroke="#edcf88" stroke-width="2"/>
+    <circle cx="64" cy="64" r="53" fill="url(#bronze)" stroke="#796038" stroke-width="2" filter="url(#patina)"/>
+    <path d="M51 78V50H78" fill="none" stroke="#f0d394" stroke-width="5"/>
+    <path d="M50 78H78V50" fill="none" stroke="#654c2a" stroke-width="5"/>
+    <rect x="50" y="50" width="28" height="28" fill="none" stroke="#8d6e37" stroke-width="2"/>
+  </g>
+</svg>

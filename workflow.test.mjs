@@ -1,3 +1,4 @@
+import { testAccounts } from './support/auth-fixture.mjs';
 /** 报告驱动回归：排盘可复核、模型按需调用、流式失败不冒充成功。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -59,7 +60,7 @@ test('断流、上游错误与输出截断不能作为完整回答',async()=>{
 });
 // 通过真实 HTTP 验证先盘后解读与原问题 ID 的关联，模型使用本机替身。
 test('生成盘面零模型调用，解读与追问保留原盘及 ID',async()=>{
- const calls=[];const server=createApp({auth:{authorized:()=>true,handle:async()=>false},model:async(messages,options)=>{calls.push(messages);options?.onDelta('模拟回答');return {configured:true,answer:'模拟回答'};}});server.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${server.address().port}`;
+ const calls=[];const server=createApp({accounts:testAccounts,auth:{authorized:()=>true,handle:async()=>false},model:async(messages,options)=>{calls.push(messages);options?.onDelta('模拟回答');return {configured:true,answer:'模拟回答'};}});server.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${server.address().port}`;
  const post=(path,payload,stream=false)=>fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json',...(stream?{Accept:'text/event-stream'}:{})},body:JSON.stringify(payload)});
  try{const chart=await (await post('/api/chart',{tool:'tarot',spread:'celtic',question:'学习计划'})).json();assert.equal(calls.length,0);assert.equal(chart.record.facts.cards.length,10);
  const output=await(await post('/api/interpret',{record:chart.record},true)).text();assert.match(output,/event: delta/);assert.match(output,/event: done/);assert.ok(output.includes(chart.record.id));
