@@ -128,7 +128,14 @@ export function createApp({model=askModel,store}={}) {
         return json(res,200,await complete(result));
         } finally {pending.delete(record.id);}
       }
-      const files={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
+      // 仅开放已知的 78 张本地 JPEG；不接受路径拼接或任意文件读取。
+      if(req.method==='GET'&&/^\/assets\/tarot\/rws\/rws-(?:[0-9]|[1-6][0-9]|7[0-7])\.jpg$/.test(path)) {
+        let image;
+        try{image=await readFile(new URL(`./public${path}`,import.meta.url));}
+        catch(error){if(error.code==='ENOENT')return json(res,404,{error:'牌图不存在'});throw error;}
+        res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=86400'});return res.end(image);
+      }
+      const files={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
       if(req.method==='GET'&&files[path]) {const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});return res.end(await readFile(new URL(`./public/${name}`,import.meta.url)));}
       json(res,404,{error:'页面不存在'});
     } catch(error) {

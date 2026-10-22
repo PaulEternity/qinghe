@@ -39,3 +39,12 @@
 @media(prefers-reduced-motion:reduce){.tarot-card,.tarot-rotor,.tarot-front::after{animation:none!important;transition:none!important}.tarot-card:not(:disabled):hover .tarot-rotor{transform:none}}
 /* 手摇录入的三枚铜钱：以古铜钱纹理图为底，叠印「乾隆通宝」四字，抛掷时上下翻跳切换正反。 */
 .coin-cast{text-align:center;padding:10px 0 4px}.coin-cast .secondary{margin:8px 0 4px}.coin-tray{display:flex;justify-content:center;gap:14px;margin:4px 0 10px}.coin{position:relative;width:64px;height:64px;border-radius:50%;display:block;background:url('/coin.jpg') center/cover;box-shadow:0 4px 8px #0003,0 0 0 1px #8a6319 inset;user-select:none;transition:transform .15s}.coin i{position:absolute;font:600 13px var(--serif);font-style:normal;color:#4a3410;text-shadow:0 1px 0 #e8d09066}.coin .c-t{top:5px;left:50%;transform:translateX(-50%)}.coin .c-b{bottom:5px;left:50%;transform:translateX(-50%)}.coin .c-r{right:6px;top:50%;transform:translateY(-50%)}.coin .c-l{left:6px;top:50%;transform:translateY(-50%)}.coin.bei i{color:#3c2c14}.coin.shaking{animation:coin-toss 1.2s ease-in-out}.casting .coin{transition:transform .08s}@keyframes coin-toss{0%,100%{transform:translateY(0) rotate(0)}12%{transform:translateY(-34px) rotate(-150deg)}30%{transform:translateY(0) rotate(140deg)}48%{transform:translateY(-24px) rotate(320deg)}64%{transform:translateY(0) rotate(60deg)}82%{transform:translateY(-10px) rotate(200deg)}}@media(prefers-reduced-motion:reduce){.coin.shaking{animation:none!important}}
+
+/* 保留整张韦特插画不裁切；逆位只旋转图片，中文名称保持正向可读。 */
+.tarot-front.has-artwork{display:grid;grid-template-rows:minmax(0,1fr) auto;padding:7px;gap:0}
+.tarot-artwork{display:block;width:100%;height:100%;min-height:0;object-fit:contain;border-radius:3px}
+.tarot-artwork.is-reversed{transform:rotate(180deg)}
+.tarot-art-label{display:flex;align-items:center;justify-content:center;gap:8px;padding:7px 2px 2px;min-width:0}
+.tarot-art-label b{font-size:15px;line-height:1.4}
+.tarot-art-label .tarot-orientation{flex-shrink:0;font-size:9px;letter-spacing:1px}
+@media(max-width:600px){.tarot-front.has-artwork{padding:5px}.tarot-art-label{flex-direction:column;gap:2px;padding-top:5px}.tarot-art-label b{font-size:13px}.tarot-art-label .tarot-orientation{font-size:8px}}

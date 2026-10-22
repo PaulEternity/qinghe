@@ -1,0 +1,556 @@
+{
+  "deck": "Rider-Waite-Smith",
+  "artist": "Pamela Colman Smith",
+  "designer": "Arthur Edward Waite",
+  "license": "Public Domain (as identified by source repository)",
+  "source": "https://github.com/mixvlad/TarotCards",
+  "sourceCommit": "840b84d012c6b74dc1634fa2d00d1b21f5b28093",
+  "cards": [
+    {
+      "id": "rws-0",
+      "name": "愚者",
+      "file": "rws-0.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/00_Fool.jpg",
+      "sha256": "e408ab3dc880a145259deafa65f50a38d401e071af338797e835b392d367f140"
+    },
+    {
+      "id": "rws-1",
+      "name": "魔术师",
+      "file": "rws-1.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/01_Magician.jpg",
+      "sha256": "8f12da1eacda2e0e9cc2ccf4aa81da6ff126b3c0046a0f1c36dbe2017ffe5ca5"
+    },
+    {
+      "id": "rws-2",
+      "name": "女祭司",
+      "file": "rws-2.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/02_High_Priestess.jpg",
+      "sha256": "74452c448a00b910679bad9a12ffc8a606c4481ad1b1fb5c1f4379218f1fd910"
+    },
+    {
+      "id": "rws-3",
+      "name": "皇后",
+      "file": "rws-3.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/03_Empress.jpg",
+      "sha256": "62983bf3c7d4c55d4ee9f17c537f2745119d3d467f1fc0eac69f02ecff26793e"
+    },
+    {
+      "id": "rws-4",
+      "name": "皇帝",
+      "file": "rws-4.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/04_Emperor.jpg",
+      "sha256": "699e4e33d78ea8f514a93b67bac23e448200b6300b13e4cac9b3fbbabc5064eb"
+    },
+    {
+      "id": "rws-5",
+      "name": "教皇",
+      "file": "rws-5.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/05_Hierophant.jpg",
+      "sha256": "6c69d7e56f40b45dcdcf4a18379ac0005f7cb1d7efb4194a533b2fd241acd55d"
+    },
+    {
+      "id": "rws-6",
+      "name": "恋人",
+      "file": "rws-6.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/06_Lovers.jpg",
+      "sha256": "4f0ca99bdec7368a0359caf726fa7c2b85b67aa84783bbf03ffc7aaa8279fab6"
+    },
+    {
+      "id": "rws-7",
+      "name": "战车",
+      "file": "rws-7.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/07_Chariot.jpg",
+      "sha256": "005b3487b0f54e1badcb3732bba00dc1068046893d2e420b48f64bd370c68c86"
+    },
+    {
+      "id": "rws-8",
+      "name": "力量",
+      "file": "rws-8.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/08_Strength.jpg",
+      "sha256": "39d60e5e4d4fd3f673b82cdfd1623bf9ba3c53f213b957d98e7f1028abf59547"
+    },
+    {
+      "id": "rws-9",
+      "name": "隐者",
+      "file": "rws-9.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/09_Hermit.jpg",
+      "sha256": "f2fe29491934c1b4ef5f2e259d82bd5009a6f24b5e461dd4f4694a39c5baf53e"
+    },
+    {
+      "id": "rws-10",
+      "name": "命运之轮",
+      "file": "rws-10.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/10_Wheel_of_Fortune.jpg",
+      "sha256": "7e6e184d7e11892de50a9bfe9811a396aaaa053b03bac7db4f29c7b72e7d18d9"
+    },
+    {
+      "id": "rws-11",
+      "name": "正义",
+      "file": "rws-11.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/11_Justice.jpg",
+      "sha256": "e655bf03c319c4a69ea3613d13056248a660e11c4cee9379b4889cf2660499d5"
+    },
+    {
+      "id": "rws-12",
+      "name": "倒吊人",
+      "file": "rws-12.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/12_Hanged_Man.jpg",
+      "sha256": "ce4f6e2ea137dd6bf1f6c656c4289c4a960cd4ebd28be6e2c041a85c96b5ea43"
+    },
+    {
+      "id": "rws-13",
+      "name": "死神",
+      "file": "rws-13.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/13_Death.jpg",
+      "sha256": "dfd96aafee674956006fc2511aef3b3b331f0644e5223a414e70188ab506ec38"
+    },
+    {
+      "id": "rws-14",
+      "name": "节制",
+      "file": "rws-14.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/14_Temperance.jpg",
+      "sha256": "2c786606f320907b717f122a81fd6ef30eae6b9d08de07f46d10f7a4346e842e"
+    },
+    {
+      "id": "rws-15",
+      "name": "恶魔",
+      "file": "rws-15.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/15_Devil.jpg",
+      "sha256": "b2199858b7640237dd66fab890320cba61b4a0c15cd9d719220575710d3c5458"
+    },
+    {
+      "id": "rws-16",
+      "name": "高塔",
+      "file": "rws-16.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/16_Tower.jpg",
+      "sha256": "c27e09bb3edd033bdf5a997e77725fe81a39875ee3a2f90b12ba2eca472a5c9e"
+    },
+    {
+      "id": "rws-17",
+      "name": "星星",
+      "file": "rws-17.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/17_Star.jpg",
+      "sha256": "7726956045da8ea196cf8f77798eccf6f6d525e4fcdf3425eec761a8886d9aed"
+    },
+    {
+      "id": "rws-18",
+      "name": "月亮",
+      "file": "rws-18.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/18_Moon.jpg",
+      "sha256": "9d0874a70dc6ea796a5633256189868205893798c9f9070aaee332f4543a7ae9"
+    },
+    {
+      "id": "rws-19",
+      "name": "太阳",
+      "file": "rws-19.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/19_Sun.jpg",
+      "sha256": "74711a3be3b87edd55a9aabde2ddd165a2ad633c071bd64c8d0a1f579b341023"
+    },
+    {
+      "id": "rws-20",
+      "name": "审判",
+      "file": "rws-20.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/20_Judgement.jpg",
+      "sha256": "b8e31dd96778b4a1fd8288724376d5b346bf21e0b57c68f4054701d78f718936"
+    },
+    {
+      "id": "rws-21",
+      "name": "世界",
+      "file": "rws-21.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/21_World.jpg",
+      "sha256": "13ec08002aab6d27d523ba14657d3f0116b440de9c4fadbc1fe50674391fac9b"
+    },
+    {
+      "id": "rws-22",
+      "name": "权杖王牌",
+      "file": "rws-22.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands01.jpg",
+      "sha256": "1fdcb16be1c1d53a79daaa7c02a95994abf772121aa1b355d716949e1a4555f3"
+    },
+    {
+      "id": "rws-23",
+      "name": "权杖二",
+      "file": "rws-23.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands02.jpg",
+      "sha256": "51e3e903deb282028a13c8ce05ee2370aea0fe8ccfb40153efa8faef3fb22036"
+    },
+    {
+      "id": "rws-24",
+      "name": "权杖三",
+      "file": "rws-24.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands03.jpg",
+      "sha256": "5175f3c846256c503d9d37fc9bfe9eebc53f9525bb20d570150ab52c66e751b8"
+    },
+    {
+      "id": "rws-25",
+      "name": "权杖四",
+      "file": "rws-25.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands04.jpg",
+      "sha256": "a5bdda48eaaedb92958819399216a9cd266fb5bcc56b31e3aa58bc496358cb67"
+    },
+    {
+      "id": "rws-26",
+      "name": "权杖五",
+      "file": "rws-26.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands05.jpg",
+      "sha256": "0ce7a6dcf14f730124d31c2baa12b22459693b74cc568f44a678a128a7ec9e41"
+    },
+    {
+      "id": "rws-27",
+      "name": "权杖六",
+      "file": "rws-27.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands06.jpg",
+      "sha256": "d8569d94dc8961a6281a5fc926c4a1eb58b6ac48e31efd15ac0e2d17b217a705"
+    },
+    {
+      "id": "rws-28",
+      "name": "权杖七",
+      "file": "rws-28.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands07.jpg",
+      "sha256": "03cb66b1f0ee82ecf41e28a0d6f70987477c6c996e62b0c40051bb8a1c04ad59"
+    },
+    {
+      "id": "rws-29",
+      "name": "权杖八",
+      "file": "rws-29.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands08.jpg",
+      "sha256": "90613644f1069f8c08ccade71a83765552ee45c19ed4fe8d1559e0673ab11396"
+    },
+    {
+      "id": "rws-30",
+      "name": "权杖九",
+      "file": "rws-30.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands09.jpg",
+      "sha256": "4320d50dcffc12cddd8b82aff143ad20a54d6fb52ea1b6160586e9e655580ca9"
+    },
+    {
+      "id": "rws-31",
+      "name": "权杖十",
+      "file": "rws-31.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands10.jpg",
+      "sha256": "fa0f99bc15eb0fbc9edf70e471e5e29e2d0131052260796127015b2127c76fe0"
+    },
+    {
+      "id": "rws-32",
+      "name": "权杖侍从",
+      "file": "rws-32.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands11.jpg",
+      "sha256": "6b01008eb179aff2f9f94d1d7ee5b7be9a81b68739a89fbc1cfb9dd07cd7e68b"
+    },
+    {
+      "id": "rws-33",
+      "name": "权杖骑士",
+      "file": "rws-33.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands12.jpg",
+      "sha256": "e6c52549b69a7ecd7a9f86b62450aff8ad9be894f8c4276e9f2dc33cfd941651"
+    },
+    {
+      "id": "rws-34",
+      "name": "权杖王后",
+      "file": "rws-34.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands13.jpg",
+      "sha256": "16791d97b76c3863cf571f8aa412a1376687eb050cd359ddbca597be5b3fe8a0"
+    },
+    {
+      "id": "rws-35",
+      "name": "权杖国王",
+      "file": "rws-35.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Wands14.jpg",
+      "sha256": "ae971fa948773f6aa1cfed8bd8c64a5f5c65554fd5c0c7aace657aa4ea9d694c"
+    },
+    {
+      "id": "rws-36",
+      "name": "圣杯王牌",
+      "file": "rws-36.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups01.jpg",
+      "sha256": "f450f26a4297f56a3d68b027bc45c10b89be768353d5c244a05fd6bd94aa4aca"
+    },
+    {
+      "id": "rws-37",
+      "name": "圣杯二",
+      "file": "rws-37.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups02.jpg",
+      "sha256": "68c40da6dc4949e69fd0a1bee627dccfcf7c52cfc2212c54864e3d5fd6858dff"
+    },
+    {
+      "id": "rws-38",
+      "name": "圣杯三",
+      "file": "rws-38.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups03.jpg",
+      "sha256": "615ed66d91a023c3f1a58d6885588ed99152056556ba8d6bda3c6f5db2359d2b"
+    },
+    {
+      "id": "rws-39",
+      "name": "圣杯四",
+      "file": "rws-39.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups04.jpg",
+      "sha256": "af7edb909bc9712c5007e6c463dc07a6d32226cf5627f3536b5e2fef18e17f44"
+    },
+    {
+      "id": "rws-40",
+      "name": "圣杯五",
+      "file": "rws-40.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups05.jpg",
+      "sha256": "10bddfb9d2d9c30befc7ad78b3f82d1549b9ffac28866d7e31cdfb01c14f303e"
+    },
+    {
+      "id": "rws-41",
+      "name": "圣杯六",
+      "file": "rws-41.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups06.jpg",
+      "sha256": "59f89878250a3764f05ddfd5e448dd066e465a949ae5f958d566b224d207a14f"
+    },
+    {
+      "id": "rws-42",
+      "name": "圣杯七",
+      "file": "rws-42.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups07.jpg",
+      "sha256": "3b1a27d7fc801eb3fca059c80113bd657575bf2749c2031260ddf95df22140df"
+    },
+    {
+      "id": "rws-43",
+      "name": "圣杯八",
+      "file": "rws-43.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups08.jpg",
+      "sha256": "33f26c275a50ccccf790a1ec59996c96808b5106e032cfc91594faa32beb6005"
+    },
+    {
+      "id": "rws-44",
+      "name": "圣杯九",
+      "file": "rws-44.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups09.jpg",
+      "sha256": "3a7ba7383eb0ca8ab5c2d70357983f895afae112b6e87a922668e17e8f426494"
+    },
+    {
+      "id": "rws-45",
+      "name": "圣杯十",
+      "file": "rws-45.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups10.jpg",
+      "sha256": "100d0af02e692e3901e2582efa3d36926aa27adf99a607228d03761482020bb5"
+    },
+    {
+      "id": "rws-46",
+      "name": "圣杯侍从",
+      "file": "rws-46.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups11.jpg",
+      "sha256": "331eaed6ea5d8b83d33d88bfa231c48a2b146aa95bb985315a9ee919842ebf42"
+    },
+    {
+      "id": "rws-47",
+      "name": "圣杯骑士",
+      "file": "rws-47.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups12.jpg",
+      "sha256": "42ba1876129a6ddff397a26c103747f9ceccb9dfbd524ab42c5007a7978cb0dd"
+    },
+    {
+      "id": "rws-48",
+      "name": "圣杯王后",
+      "file": "rws-48.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups13.jpg",
+      "sha256": "3a8b82894496784b073839aaa6767e40f8ba08982e9bb433abfd82d33ac67f96"
+    },
+    {
+      "id": "rws-49",
+      "name": "圣杯国王",
+      "file": "rws-49.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Cups14.jpg",
+      "sha256": "8b8398ede80558597f60a9ddc0f466986d9a1a0c00ed02d225f867014fcb524c"
+    },
+    {
+      "id": "rws-50",
+      "name": "宝剑王牌",
+      "file": "rws-50.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords01.jpg",
+      "sha256": "42a1245208556561a799002707a66a5c373a60de67d2be1f947322512d23683d"
+    },
+    {
+      "id": "rws-51",
+      "name": "宝剑二",
+      "file": "rws-51.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords02.jpg",
+      "sha256": "3cd0f5419b06eb1c1f298fe6603ec377eefd31f0ece342a842f6985a76bebbd7"
+    },
+    {
+      "id": "rws-52",
+      "name": "宝剑三",
+      "file": "rws-52.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords03.jpg",
+      "sha256": "32790b9b8a8a96bf6324800f12b04ffa291846a41f5868fbfc03867029f815a3"
+    },
+    {
+      "id": "rws-53",
+      "name": "宝剑四",
+      "file": "rws-53.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords04.jpg",
+      "sha256": "cab06a6ee616ed7890d21a605d70f8ec96d1810dc0718bc97f8b4dcbd70f8533"
+    },
+    {
+      "id": "rws-54",
+      "name": "宝剑五",
+      "file": "rws-54.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords05.jpg",
+      "sha256": "3b13cd662ce364853b05fe9885359c1cf580e09474fbe1cd9aaec32cbda9cd1a"
+    },
+    {
+      "id": "rws-55",
+      "name": "宝剑六",
+      "file": "rws-55.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords06.jpg",
+      "sha256": "1e31ab8816aad74d6fad8c44c269e31f5da7271b0416656b533936addfba6007"
+    },
+    {
+      "id": "rws-56",
+      "name": "宝剑七",
+      "file": "rws-56.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords07.jpg",
+      "sha256": "5334253ebd95751c4e3e0ba25391d0617687ba39061dbb9a516cf2efcd4c6bed"
+    },
+    {
+      "id": "rws-57",
+      "name": "宝剑八",
+      "file": "rws-57.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords08.jpg",
+      "sha256": "14b5e1aabd46385844af2c2a492ebd1496dc4e2f295a5b63792f93c20e5ffe6a"
+    },
+    {
+      "id": "rws-58",
+      "name": "宝剑九",
+      "file": "rws-58.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords09.jpg",
+      "sha256": "062ffaa1cd5154eb201bb5b4491fc26992c3efa293e8ad37074d40833d4d9dad"
+    },
+    {
+      "id": "rws-59",
+      "name": "宝剑十",
+      "file": "rws-59.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords10.jpg",
+      "sha256": "5ee34c7ab36918f410035c22bfc59d30482e02d9be41783890951696c197065d"
+    },
+    {
+      "id": "rws-60",
+      "name": "宝剑侍从",
+      "file": "rws-60.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords11.jpg",
+      "sha256": "872023c2e21e07232e21f7c56fd83fbff6ab89d7d856cd8567fdd6ab02ce0020"
+    },
+    {
+      "id": "rws-61",
+      "name": "宝剑骑士",
+      "file": "rws-61.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords12.jpg",
+      "sha256": "9590a0dae9d748d9d5ce7c8aba6b905e5d5d75be2cf591429a597da91ddd1518"
+    },
+    {
+      "id": "rws-62",
+      "name": "宝剑王后",
+      "file": "rws-62.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords13.jpg",
+      "sha256": "1e2aef88d5cb53d5aa70fdb40c695bf12b405cb987dfbb767ed25d8ee7281924"
+    },
+    {
+      "id": "rws-63",
+      "name": "宝剑国王",
+      "file": "rws-63.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Swords14.jpg",
+      "sha256": "e04da7cc54bec3306f8b98fa53f96c156f6d030d4ad77164eda4a72b995d32a4"
+    },
+    {
+      "id": "rws-64",
+      "name": "星币王牌",
+      "file": "rws-64.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents01.jpg",
+      "sha256": "34b0ed3a8f5a5637b36650f5d8eedd8e7a9ec8c6a847de274a3d89548cfb4704"
+    },
+    {
+      "id": "rws-65",
+      "name": "星币二",
+      "file": "rws-65.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents02.jpg",
+      "sha256": "c832d5e33d60323e03016a16c1d2dafd2c0a713e6ab97d44b79adbf5d3aa9aae"
+    },
+    {
+      "id": "rws-66",
+      "name": "星币三",
+      "file": "rws-66.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents03.jpg",
+      "sha256": "eed3d605cfdf41061fce3661a824334ae75bf34a3f6372acc323b66cadf61458"
+    },
+    {
+      "id": "rws-67",
+      "name": "星币四",
+      "file": "rws-67.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents04.jpg",
+      "sha256": "6f0377f2f4a9e284965c61cbf58f4d7afeeb3b92ade191bcc27372c5f9193bb7"
+    },
+    {
+      "id": "rws-68",
+      "name": "星币五",
+      "file": "rws-68.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents05.jpg",
+      "sha256": "789a2ef1d703b2d83ab10ee2c47e282fabb908b620a2aae3c2f158526cd1f155"
+    },
+    {
+      "id": "rws-69",
+      "name": "星币六",
+      "file": "rws-69.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents06.jpg",
+      "sha256": "e626244f7956be5a24599c3058b42aa8fb7148ff52113197afb2548098651a8d"
+    },
+    {
+      "id": "rws-70",
+      "name": "星币七",
+      "file": "rws-70.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents07.jpg",
+      "sha256": "6ecfaf70217ac36a58c6e06c02c38211c87f04fa232052b1f1398b09481854df"
+    },
+    {
+      "id": "rws-71",
+      "name": "星币八",
+      "file": "rws-71.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents08.jpg",
+      "sha256": "e6617d0e1a7e00074855e43ece0999a6b4951f5a7ff43b29371f8b2012a7bdb3"
+    },
+    {
+      "id": "rws-72",
+      "name": "星币九",
+      "file": "rws-72.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents09.jpg",
+      "sha256": "656aee04b9fd136ba05cfdb492fd8da0a6943582982c1cfc131eef0b32363c9d"
+    },
+    {
+      "id": "rws-73",
+      "name": "星币十",
+      "file": "rws-73.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents10.jpg",
+      "sha256": "a6f8b7d0545cb3a14c15949b5d71bc3befbb4a511deb9f8e08ab5069018f050f"
+    },
+    {
+      "id": "rws-74",
+      "name": "星币侍从",
+      "file": "rws-74.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents11.jpg",
+      "sha256": "9e3d179680809d5880c2dafd0ec67dcf4badc6ab17067d6f5d48b5b8bf788e58"
+    },
+    {
+      "id": "rws-75",
+      "name": "星币骑士",
+      "file": "rws-75.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents12.jpg",
+      "sha256": "b8f17e899b3df32a62c8bdb92dcd0a120452f104e71908b2bb68cca47f2dc67b"
+    },
+    {
+      "id": "rws-76",
+      "name": "星币王后",
+      "file": "rws-76.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents13.jpg",
+      "sha256": "b2f5554346306bdaf1e6d7aeb9555519c01fa4977bd439919d5ac4ec1b434d71"
+    },
+    {
+      "id": "rws-77",
+      "name": "星币国王",
+      "file": "rws-77.jpg",
+      "source": "https://raw.githubusercontent.com/mixvlad/TarotCards/840b84d012c6b74dc1634fa2d00d1b21f5b28093/tarot/rider-waite/720px/Pents14.jpg",
+      "sha256": "a9a3126f71988d3dfb05029fb318bc00d162fdfc8482c90a2c72b67cd8ba5cd9"
+    }
+  ]
+}

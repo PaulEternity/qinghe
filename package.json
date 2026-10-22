@@ -11,7 +11,8 @@
     "db:start": "sh scripts/mysql-local.sh start",
     "db:stop": "sh scripts/mysql-local.sh stop",
     "db:status": "sh scripts/mysql-local.sh status",
-    "test:mysql": "MYSQL_INTEGRATION=1 node --env-file=.env --test mysql.integration.test.mjs"
+    "test:mysql": "MYSQL_INTEGRATION=1 node --env-file=.env --test mysql.integration.test.mjs",
+    "assets:tarot": "node scripts/download-tarot.mjs"
   },
   "engines": {
     "node": ">=22.19"
