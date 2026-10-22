@@ -1,4 +1,4 @@
-/** 本地 HTTP 服务：静态界面、真实排盘和服务端模型代理；无账户或付费机制。 */
+/** 本地 HTTP 服务：静态界面、排盘、管理员与受访问码保护的模型代理。 */
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,7 @@ export { askModel } from './model.ts';
 import { prepare, tools } from './engine.mjs';
 import { MysqlStore } from './store.ts';
 import { correctSolarTime } from './solar-time.ts';
+import { AccessControl } from './access.mjs';
 
 /** 返回 JSON，避免缓存带出生信息与对话的响应。 */
 function json(res,status,data) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data)); }
@@ -28,7 +29,7 @@ export function messagesFor(record,history=[],image) {
 }
 
 /** 创建可测试的服务实例；严格静态白名单和本机来源检查限制代理暴露。 */
-export function createApp({model=askModel,store}={}) {
+export function createApp({model=askModel,store,auth=new AccessControl()}={}) {
   const pending=new Set();
   return http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -39,6 +40,8 @@ export function createApp({model=askModel,store}={}) {
     if(req.headers.origin && ![`http://${host}`].includes(req.headers.origin)) return json(res,403,{error:'不允许跨站请求'});
     const path=new URL(req.url,'http://localhost').pathname;
     try {
+      if(await auth.handle(req,res,path,body,json))return;
+      if(req.method==='POST'&&['/api/interpret','/api/reading','/api/followup'].includes(path)&&!auth.authorized(req))return json(res,401,{code:'AI_ACCESS_REQUIRED',error:'请先验证六位数字 AI 访问码，验证后 5 分钟内有效'});
       if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools,storage:store?'mysql':'none'});
       // 札记 API 只在持久化仓库可用时开放；测试实例可以显式不提供仓库。
       if(path.startsWith('/api/notes')) {
@@ -135,7 +138,7 @@ export function createApp({model=askModel,store}={}) {
         catch(error){if(error.code==='ENOENT')return json(res,404,{error:'牌图不存在'});throw error;}
         res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=86400'});return res.end(image);
       }
-      const files={'/':['index.html','text/html; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
       if(req.method==='GET'&&files[path]) {const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});return res.end(await readFile(new URL(`./public/${name}`,import.meta.url)));}
       json(res,404,{error:'页面不存在'});
     } catch(error) {
@@ -156,7 +159,8 @@ function validateNote(note) {
 // 生产入口必须连接 MySQL 成功后才监听，避免把未持久化结果显示为已保存。
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
   const store=new MysqlStore();await store.init();
-  const app=createApp({store});
+  const auth=await AccessControl.open(fileURLToPath(new URL('./.local/',import.meta.url)));
+  const app=createApp({store,auth});
   app.listen(Number(process.env.PORT||3187),'127.0.0.1',()=>console.log(`清和已启动：http://127.0.0.1:${process.env.PORT||3187}（MySQL 持久化）`));
   for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>app.close(async()=>{await store.close();process.exit(0);}));
 }

@@ -12,7 +12,7 @@ test('真实 MySQL：落库、流式完成、原盘追问、重连、幂等导�
  /** 模拟模型只替代付费上游；HTTP、SQL 和连接全部真实运行。 */
  const model=async(messages,options)=>{calls.push(messages);options?.onDelta?.('模拟中文');if(fail)throw new Error('模型测试中断');return {configured:true,answer:'模拟中文完整回答'};};
  /** 新建服务实例用于模拟应用重启，不共享仓库连接或内存缓存。 */
- async function start(){server=createApp({store,model});server.listen(0,'127.0.0.1');await once(server,'listening');return `http://127.0.0.1:${server.address().port}`;}
+ async function start(){server=createApp({auth:{authorized:()=>true,handle:async()=>false},store,model});server.listen(0,'127.0.0.1');await once(server,'listening');return `http://127.0.0.1:${server.address().port}`;}
  /** 关闭 HTTP 监听并等待连接释放。 */
  async function stop(){await new Promise(resolve=>server.close(resolve));await store.close();}
  let base=await start();
