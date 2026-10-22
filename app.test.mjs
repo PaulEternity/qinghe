@@ -15,14 +15,15 @@ test('官方示例日期的四柱与无效日期边界',()=>{
 });
 // 覆盖十二宫和全部功能必要输入，防止只完成首页入口。
 test('九个入口能够构建上下文，缺失输入明确失败',()=>{
-  const input={birth:'1996-08-18T10:30',partnerBirth:'1995-06-11T12:30',gender:'女',question:'我该如何梳理下一步',optionA:'A 岗位',optionB:'B 岗位',surname:'张',image:'data:image/png;base64,aGVsbG8='};
-  for(const tool of ['bazi','ziwei','tarot','liuyao','dream','offer','match','naming','palm']){
+  const input={birth:'1996-08-18T10:30',partnerBirth:'1995-06-11T12:30',gender:'女',question:'我该如何梳理下一步',signA:'aries',signB:'libra',surname:'张',image:'data:image/png;base64,aGVsbG8='};
+  for(const tool of ['bazi','ziwei','tarot','liuyao','dream','zodiac','match','naming','palm']){
     const r=prepare({...input,tool});assert.equal(r.tool,tool);
     if(tool==='ziwei'){assert.equal(r.facts.ziwei.palaces.length,12);assert.ok(r.facts.ziwei.palaces.some(p=>p.majorStars.length));}
     if(tool==='match')assert.equal(r.facts.partner.pillars.length,4);
     if(tool==='tarot')assert.equal(new Set(r.facts.cards.map(c=>c.name)).size,3);
     if(tool==='liuyao')assert.equal(r.facts.lines.length,6);
   }
+  assert.throws(()=>prepare({tool:'zodiac',signA:'aries',question:'test'}));
   assert.throws(()=>prepare({tool:'offer',birth:input.birth,question:'test'}));
   assert.throws(()=>prepare({tool:'palm',question:'test',image:'javascript:alert(1)'}));
 });

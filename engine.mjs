@@ -5,6 +5,7 @@ import { drawTarot } from './tarot.ts';
 import { castLines, calculateLiuyao } from './liuyao.ts';
 import { calculateZiwei } from './ziwei.ts';
 import { correctSolarTime } from './solar-time.ts';
+import { matchZodiac, ZODIAC_SIGNS, ZODIAC_ELEMENTS } from './zodiac.ts';
 
 export const tools = {
   bazi: { name: '生辰八字', icon: '乾', desc: '四柱排盘，读懂人生的节律', birth: true },
@@ -12,7 +13,9 @@ export const tools = {
   ziwei: { name: '紫微斗数', icon: '星', desc: '十二宫位，展开命盘全景', birth: true },
   tarot: { name: '塔罗占卜', icon: '契', desc: '选择牌阵，照见心绪与行动' },
   match: { name: '双人合盘', icon: '合', desc: '从差异出发，理解彼此', birth: true },
-  offer: { name: 'Offer 对比', icon: '择', desc: '把两种可能，放在一起看', birth: true },
+  zodiac: { name: '星座匹配', icon: '星', desc: '从星座与四元素，探索两个人的相处方式', signs: ZODIAC_SIGNS, elements: ZODIAC_ELEMENTS },
+  // 仅保留旧札记识别；首页隐藏且禁止创建新的 Offer 记录。
+  offer: { name: 'Offer 对比', icon: '择', legacy: true },
   naming: { name: '东方起名', icon: '名', desc: '在字义与音韵之间，寻找好名字', birth: true },
   dream: { name: '梦境札记', icon: '梦', desc: '记录梦境，梳理现实中的牵挂' },
   palm: { name: '手相观察', icon: '掌', desc: '上传手掌照片，获得视觉解读' }
@@ -44,7 +47,7 @@ function field(value,label,max=4000) {
 /** 根据功能创建可信上下文；不要求模型虚构历法、星曜或抽牌。 */
 export function prepare(input) {
   const tool=tools[input.tool];
-  if (!tool) throw new Error('未知测算功能');
+  if (!tool || tool.legacy) throw new Error('未知测算功能，请选择当前提供的功能');
   const question=field(input.question,'问题');
   let facts={};
   const correction={enabled:input.solarCorrection??false,longitude:input.longitude};
@@ -64,7 +67,7 @@ export function prepare(input) {
     const calendar=bazi(timeCorrection.corrected);
     facts={timeCorrection,lines:values.map((value,i)=>({position:i+1,value,yang:value%2===1,moving:[6,9].includes(value)})),method:'三钱法，初爻至上爻。6 老阴、7 少阳、8 少阴、9 老阳。纳甲/六亲六神/世应/旬空由固定规则引擎生成；不自动确定用神或应期。',castMode:input.castMode||'auto',liuyao:calculateLiuyao(values,calendar.pillars.map(p=>p.ganzhi))};
   }
-  if (input.tool==='offer') facts.options={a:field(input.optionA,'方案 A'),b:field(input.optionB,'方案 B')};
+  if (input.tool==='zodiac') facts.zodiac=matchZodiac(input.signA,input.signB);
   if (input.tool==='naming') facts.surname=field(input.surname,'姓氏',10);
   if (input.tool==='palm') {
     if (typeof input.image!=='string'||input.image.length>4_200_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(input.image)) throw new Error('请上传不超过 3MB 的 PNG、JPEG 或 WebP 手掌照片');

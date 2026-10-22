@@ -3,12 +3,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import fs from 'node:fs';
-import {prepare} from './engine.mjs';
+import {prepare,tools} from './engine.mjs';
 import { TAROT_IMAGES } from './public/tarot-images.js';
 import { GLOSS } from './public/gloss.js';
 const source=fs.readFileSync(new URL('./public/app.js',import.meta.url),'utf8');
 // 提取现有纯函数所在注释段，直接测试生产代码，不依赖编译器内部 API。
-const functions=['solarSummary','glossItem','hexagramGloss','tarotGloss','factsHTML'].map(name=>{const start=source.indexOf('function '+name+'(');const next=source.indexOf('/**',start);return source.slice(start,next<0?source.length:next);}).join('\n');
+const functions=['solarSummary','glossItem','hexagramGloss','tarotGloss','zodiacHTML','factsHTML'].map(name=>{const start=source.indexOf('function '+name+'(');const next=source.indexOf('/**',start);return source.slice(start,next<0?source.length:next);}).join('\n');
 const escapeDeclaration=source.split('\n').find(line=>line.startsWith('const esc='));
 /** 用真实函数和最少上下文执行模板，不复制生产实现。 */
 function render(facts,{revealed=[],answer=''}={}){const context=vm.createContext({GLOSS,TAROT_IMAGES,current:{revealed,answer},record:{facts},output:null});vm.runInContext(escapeDeclaration+'\n'+functions+'\noutput=factsHTML(record);',context);return context.output;}
@@ -25,4 +25,29 @@ test('六爻、紫微与塔罗新盘渲染，以及旧札记缺字段兼容',()=
 test('模型或历史中的危险文本作为纯文本转义，不成为可执行标记',()=>{
  const html=render({cards:[{position:'<img src=x onerror=alert(1)>',name:'<script>alert(1)</script>',orientation:'" onclick="alert(1)'}]},{revealed:[0]});
  assert.ok(!html.includes('<script>'));assert.ok(!html.includes('<img src=x'));assert.match(html,/&lt;script&gt;/);assert.match(html,/&quot;/);
+});
+
+test('星座展示双方元素、模式及建议，旧 Offer 依据保留且危险内容转义',()=>{
+ const facts=prepare({tool:'zodiac',signA:'cancer',signB:'taurus',question:'如何相处？'}).facts;
+ const html=render(facts);
+ for(const text of ['巨蟹座','金牛座','水象','土象','基本宫','固定宫','需要磨合','相处建议','仅供娱乐'])assert.ok(html.includes(text),text);
+ facts.zodiac.pairing.advice='<script>alert(1)</script>';
+ assert.ok(!render(facts).includes('<script>'));assert.match(render(facts),/&lt;script&gt;/);
+ assert.match(render({options:{a:'旧方案 A',b:'旧方案 B'}}),/旧方案 A/);
+});
+
+test('首页替换 Offer 入口，星座表单提供两份完整选项与四元素说明',()=>{
+ const main={innerHTML:'',replaceChildren(){}},grid={innerHTML:''};
+ const form={querySelectorAll:()=>[],addEventListener(){}};
+ const document={querySelector:selector=>({'#home-template':{content:{cloneNode:()=>({})}},'#tool-grid':grid,'#reading-form':form})[selector]};
+ const templates=['home','reading','bindSolarControls'].map(name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('/**',start));}).join('\n');
+ const context=vm.createContext({main,document,tools,current:null,pendingImage:null});
+ vm.runInContext(escapeDeclaration+'\n'+functions+'\n'+templates+'\nhome();reading("zodiac");',context);
+ assert.match(grid.innerHTML,/#reading\/zodiac/);assert.ok(!grid.innerHTML.includes('#reading/offer'));
+ for(const id of ['signA','signB'])assert.match(main.innerHTML,new RegExp('id="'+id+'"'));
+ assert.equal((main.innerHTML.match(/<option value="aries">/g)||[]).length,2);
+ assert.equal((main.innerHTML.match(/<option value=/g)||[]).length,26);
+ for(const element of ['火象','土象','风象','水象'])assert.ok(main.innerHTML.includes(element));
+ assert.ok(!main.innerHTML.includes('datetime-local'));assert.ok(!main.innerHTML.includes('optionA'));
+ assert.match(main.innerHTML,/查看星座匹配/);
 });
