@@ -1,0 +1,11 @@
+<view class="container"><view class="eyebrow">管理员设置</view><view class="title">模型与访问权限</view><view class="error">{{error}}</view><view class="notice" wx:if="{{message}}">{{message}}</view>
+  <block wx:if="{{allowed}}"><view class="help">网页与小程序共用配置。关闭某一模型会阻止新调用并中断该模型的所有在途请求；其他部署通过短轮询同步停止，已产生的费用无法撤销。</view>
+    <view class="panel" wx:for="{{models}}" wx:key="kind"><view class="row"><view class="card-title">{{item.label}}</view><switch checked="{{item.enabled}}" color="#31594e" disabled="{{busy}}" data-index="{{index}}" bindchange="toggle"/></view><view class="help">{{item.enabled?'已启用':'已禁用'}} · {{item.hasKey?'已配置密钥':'未配置密钥'}} · {{item.configured?'参数齐全，需测试连通性':'参数不完整'}}</view>
+      <text class="label">接口根地址</text><input value="{{item.baseUrl}}" data-index="{{index}}" data-field="baseUrl" bindinput="changeField" maxlength="500" placeholder="https://服务商地址/v1"/>
+      <text class="label">模型名称</text><input value="{{item.model}}" data-index="{{index}}" data-field="model" bindinput="changeField" maxlength="200"/>
+      <text class="label">API Key（留空保留原值）</text><input value="{{item.apiKey}}" data-index="{{index}}" data-field="apiKey" bindinput="changeField" password maxlength="4096"/>
+      <button class="primary" data-index="{{index}}" bindtap="saveForm" disabled="{{busy}}">保存配置</button><button data-kind="{{item.kind}}" bindtap="test" disabled="{{!!testing||busy}}" loading="{{testing===item.kind}}">测试已保存配置</button><view class="help">测试会发送一次真实请求，可能产生费用。管理员测试也需输入六位访问码；图片测试使用内置测试图。</view>
+    </view>
+    <view class="panel"><view class="card-title">修改 AI 访问码</view><view class="help">保存后，两端所有现有五分钟授权失效。</view><text class="label">新的六位数字访问码</text><input type="number" password maxlength="6" value="{{code}}" data-field="code" bindinput="changeCode"/><text class="label">再次输入访问码</text><input type="number" password maxlength="6" value="{{confirmCode}}" data-field="confirmCode" bindinput="changeCode"/><button class="primary" bindtap="saveCode" disabled="{{busy}}">保存访问码</button></view>
+  </block>
+</view>

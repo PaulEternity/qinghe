@@ -18,7 +18,8 @@ export async function askModel(messages:Message[],{fetcher=fetch,env=process.env
  if(!base||!key||!model)return {configured:false};
  const u=new URL(base);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)throw new Error('模型服务地址配置无效');
  const timeout=AbortSignal.timeout(90000);
- const response=await fetcher(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${key}`},body:JSON.stringify({model,messages,temperature:0.65,max_tokens:2500,stream:!!onDelta}),signal:signal?AbortSignal.any([signal,timeout]):timeout});
+ // 禁止跟随重定向，避免管理员填错地址时把密钥转发到另一个主机。
+ const response=await fetcher(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',redirect:'error',headers:{'Content-Type':'application/json',Authorization:`Bearer ${key}`},body:JSON.stringify({model,messages,temperature:0.65,max_tokens:2500,stream:!!onDelta}),signal:signal?AbortSignal.any([signal,timeout]):timeout});
  if(!response.ok)throw new Error(`模型服务返回 HTTP ${response.status}，请检查额度、模型名称和接口配置`);
  if(!onDelta){const data=await response.json();const answer=data.choices?.[0]?.message?.content;if(typeof answer!=='string'||!answer.trim())throw new Error('模型没有返回文本，请检查接口兼容性');if(data.choices?.[0]?.finish_reason==='length')throw new Error('模型输出达到长度上限，请缩小问题');return{configured:true,answer};}
  if(!response.headers.get('content-type')?.includes('text/event-stream'))throw new Error('模型服务不支持 SSE 流式响应，请检查兼容接口');

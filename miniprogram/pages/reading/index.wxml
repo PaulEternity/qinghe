@@ -1,0 +1,17 @@
+<view class="container" wx:if="{{definition}}"><view class="eyebrow">{{definition.icon}} · 先核对盘面，再结合所问解读</view><view class="title">{{definition.name}}</view><view class="help">{{definition.desc}}</view>
+  <view class="panel">
+    <block wx:for="{{fields}}" wx:key="name"><view wx:if="{{item.visible}}"><text class="label">{{item.label}}</text>
+      <picker wx:if="{{item.type==='picker'}}" class="picker" range="{{item.options}}" range-key="label" value="{{item.value}}" data-index="{{index}}" bindchange="changeField">{{item.options[item.value].label}} ▾</picker>
+      <picker wx:elif="{{item.type==='date'}}" class="picker" mode="date" start="1900-01-01" end="2100-12-31" value="{{item.value}}" data-index="{{index}}" bindchange="changeField">{{item.value||'请选择日期'}} ▾</picker>
+      <picker wx:elif="{{item.type==='time'}}" class="picker" mode="time" value="{{item.value}}" data-index="{{index}}" bindchange="changeField">{{item.value||'请选择时间'}} ▾</picker>
+      <switch wx:elif="{{item.type==='switch'}}" checked="{{item.value}}" color="#31594e" data-index="{{index}}" bindchange="changeField"/>
+      <input wx:else type="text" value="{{item.value}}" maxlength="200" data-index="{{index}}" bindinput="changeField"/>
+    </view></block>
+    <view wx:if="{{solarPreview}}" class="notice rule">{{solarPreview}}</view>
+    <view wx:if="{{definition.birth||tool==='liuyao'}}" class="help">原始时间须为 UTC+8 标准时间；不自动处理历史夏令时。真太阳时为分钟级近似校正，临界时刻请对照两种口径。</view>
+    <view wx:if="{{manual}}"><button bindtap="castCoins">掷三枚铜钱 · 辅助录入</button><view class="help">{{coinResult}}</view><view class="help">字面记 2，背面记 3；6 老阴、7 少阳、8 少阴、9 老阳。按初爻至上爻录入。</view></view>
+    <view wx:if="{{tool==='palm'}}"><button bindtap="choosePhoto">选择手掌照片</button><image wx:if="{{photo}}" src="{{photo}}" mode="widthFix" style="width:100%"/><view class="help">不超过 3MB；点击 AI 解读后才发送给已配置的图片模型，不保存到札记。图片模型未配置或禁用时不可用。</view></view>
+    <text class="label">{{tool==='dream'?'记录梦境与想了解的问题':'此刻想了解的问题'}}</text><textarea maxlength="4000" value="{{question}}" bindinput="changeQuestion" placeholder="写下具体问题，帮助解读贴近当下。"/>
+    <view class="error">{{error}}</view><button class="primary" bindtap="submit" disabled="{{busy}}" loading="{{busy}}">生成并保存盘面</button><view class="help">生成盘面不调用模型；AI 解读需要六位访问码。</view>
+  </view>
+</view><view wx:else class="container"><view class="error">{{error}}</view></view>

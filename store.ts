@@ -1,5 +1,5 @@
 /** MySQL 札记仓库：整条记录原子更新，版本号阻止并发覆盖已完成的解读。 */
-import mysql, {type Pool, type RowDataPacket, type ResultSetHeader} from 'mysql2/promise';
+import mysql, {type Pool, type PoolConnection, type RowDataPacket, type ResultSetHeader} from 'mysql2/promise';
 
 function owner(id: string) {
   if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) throw new Error('请先登录用户账号');
@@ -56,8 +56,9 @@ export class MysqlStore {
     return saved;
   }
   /** 完整回复和追问原子落库；版本冲突时保留原数据并明确报错。 */
-  async save(note: Note, ownerId: string) {
-    const [result] = await this.pool.execute<ResultSetHeader>('UPDATE readings SET note=?,revision=revision+1 WHERE id=? AND revision=? AND owner_id=?',[JSON.stringify(note),note.id,note.revision??0,owner(ownerId)]);
+  async save(note: Note, ownerId: string, connection: Pool|PoolConnection = this.pool) {
+    // 模型完整回答可加入配置锁事务，和跨部署停用操作按提交顺序串行化。
+    const [result] = await connection.execute<ResultSetHeader>('UPDATE readings SET note=?,revision=revision+1 WHERE id=? AND revision=? AND owner_id=?',[JSON.stringify(note),note.id,note.revision??0,owner(ownerId)]);
     if (result.affectedRows!==1) throw new Error('札记已被修改或删除，请刷新后重试');
     return {...note,revision:note.revision!+1};
   }

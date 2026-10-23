@@ -1,0 +1,5 @@
+<view class="container"><view class="eyebrow">留给自己的记录</view><view class="title">我的札记</view><view class="help">盘面、完整解读和追问保存在服务端，网页账号与微信账号各自独立。</view>
+  <view class="actions" wx:if="{{notes.length}}"><button bindtap="exportAll">导出全部</button><button class="danger" bindtap="remove" disabled="{{busy}}">清空札记</button></view>
+  <view class="panel" wx:for="{{notes}}" wx:key="id"><view class="tag">{{item.record.title}} · {{item.created}}</view><view class="card-title" bindtap="open" data-id="{{item.id}}">{{item.record.question}}</view><view class="actions"><button class="primary" bindtap="open" data-id="{{item.id}}">查看</button><button class="danger" bindtap="remove" data-id="{{item.id}}" disabled="{{busy}}">删除</button></view></view>
+  <view wx:if="{{!notes.length&&!busy}}" class="help">这里还没有札记。登录后可从首页开始探索。</view><view class="error">{{error}}</view><button wx:if="{{error}}" bindtap="login">检查登录账号</button>
+</view>

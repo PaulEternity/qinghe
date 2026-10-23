@@ -1,8 +1,8 @@
 /** 本地 HTTP 服务：静态界面、排盘、管理员与受访问码保护的模型代理。 */
 import http from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 import { askModel } from './model.ts';
 export { askModel } from './model.ts';
 import { prepare, tools } from './engine.mjs';
@@ -11,6 +11,9 @@ import { correctSolarTime } from './solar-time.ts';
 import { AccessControl } from './access.mjs';
 import { UserAccounts } from './accounts.mjs';
 import { deploymentConfig } from './deployment.mjs';
+import { WechatAccounts, bearerOf } from './wechat.mjs';
+import { ModelSettings } from './model-settings.mjs';
+import { GLOSS } from './public/gloss.js';
 
 /** 返回 JSON，避免缓存带出生信息与对话的响应。 */
 function json(res,status,data) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data)); }
@@ -31,7 +34,7 @@ export function messagesFor(record,history=[],image) {
 }
 
 /** 创建可测试的服务实例；严格静态白名单和本机来源检查限制代理暴露。 */
-export function createApp({model=askModel,store,deployment=deploymentConfig(),auth=new AccessControl({secure:deployment.cloud}),accounts=new UserAccounts({pool:store?.pool,secure:deployment.cloud})}={}) {
+export function createApp({model=askModel,store,models=null,deployment=deploymentConfig(),auth=new AccessControl({secure:deployment.cloud}),accounts=new UserAccounts({pool:store?.pool,secure:deployment.cloud}),wechat=new WechatAccounts({pool:store?.pool})}={}) {
   const pending=new Map();
   return http.createServer(async(req,res)=>{
     res.setHeader('X-Content-Type-Options','nosniff');
@@ -42,17 +45,51 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
     const host=req.headers.host||'';
     if(deployment.cloud?host!==deployment.host:!/^(127\.0\.0\.1|localhost):\d+$/.test(host)) return json(res,403,{error:'访问地址不允许'});
     const origin=deployment.cloud?deployment.origin:`http://${host}`;
-    if((req.headers.origin&&req.headers.origin!==origin)||(deployment.cloud&&req.method==='POST'&&req.headers.origin!==origin))return json(res,403,{error:'不允许跨站请求'});
     const path=new URL(req.url,'http://localhost').pathname;
+    // 小程序不依赖浏览器 Cookie；仅微信登录或明确 Bearer 请求允许缺失 Origin。
+    const miniRequest=path==='/api/wechat/login'||Boolean(bearerOf(req));
+    if((req.headers.origin&&req.headers.origin!==origin)||(deployment.cloud&&req.method==='POST'&&!req.headers.origin&&!miniRequest))return json(res,403,{error:'不允许跨站请求'});
     try {
-      const account=path.startsWith('/api/')?await accounts.current(req):null;
+      if(path.startsWith('/api/'))await auth.refresh?.();
+      const account=path.startsWith('/api/')?(bearerOf(req)?await wechat.current(req):await accounts.current(req)):null;
       req.user=account?.user;req.userSessionKey=account?.sessionKey;
+      req.wechatAuth=Boolean(bearerOf(req)&&account);
+      if(path==='/api/wechat/login'&&req.method==='POST') {
+        if(!req.headers['content-type']?.startsWith('application/json'))return json(res,415,{error:'需要 JSON 请求'});
+        const input=await body(req);return json(res,200,await wechat.login(input?.code,req));
+      }
+      // 携带失效 Bearer 时不能退回网页 Cookie 身份，避免两端账号串用。
+      if(bearerOf(req)&&!account)return json(res,401,{code:'LOGIN_REQUIRED',error:'微信登录已失效，请重新登录'});
+      if(path==='/api/wechat/logout'&&req.method==='POST') {
+        if(!req.wechatAuth)return json(res,401,{code:'LOGIN_REQUIRED',error:'请先微信登录'});
+        await wechat.logout(req);return json(res,200,{ok:true});
+      }
+      if(req.wechatAuth&&path.startsWith('/api/account/')&&path!=='/api/account/status')return json(res,403,{error:'微信账号不使用网页账号接口'});
       if(await accounts.handle(req,res,path,body,json,auth))return;
-      if((path.startsWith('/api/notes')||['/api/chart','/api/interpret','/api/reading','/api/followup','/api/access/verify'].includes(path))&&!req.user)return json(res,401,{code:'LOGIN_REQUIRED',error:'请先注册或登录用户账号'});
+      if((path.startsWith('/api/notes')||['/api/chart','/api/interpret','/api/reading','/api/followup','/api/access/verify'].includes(path))&&!req.user&&!(path==='/api/access/verify'&&auth.session(req,'admin')))return json(res,401,{code:'LOGIN_REQUIRED',error:'请先注册或登录用户账号'});
       const userId=req.user?.id;
       if(await auth.handle(req,res,path,body,json))return;
+      if(path.startsWith('/api/admin/models')) {
+        if(!auth.session(req,'admin'))return json(res,401,{error:'请先登录管理员账号'});
+        if(!models)return json(res,503,{error:'请先初始化共享模型配置'});
+        if(req.method==='GET'&&path==='/api/admin/models')return json(res,200,await models.status(true));
+        if(req.method!=='POST'||!req.headers['content-type']?.startsWith('application/json'))return json(res,415,{error:'需要 JSON 请求'});
+        const input=await body(req);
+        if(path==='/api/admin/models')return json(res,200,await models.save(input));
+        if(path==='/api/admin/models/test') {
+          if(!auth.authorized(req))return json(res,401,{code:'AI_ACCESS_REQUIRED',error:'请先验证六位数字 AI 访问码'});
+          if(models.active.size>=2)return json(res,429,{error:'当前模型请求较多，请稍后测试'});
+          return json(res,200,await models.test(input?.kind));
+        }
+        return json(res,404,{error:'模型管理接口不存在'});
+      }
       if(req.method==='POST'&&['/api/interpret','/api/reading','/api/followup'].includes(path)&&!auth.authorized(req))return json(res,401,{code:'AI_ACCESS_REQUIRED',error:'请先验证六位数字 AI 访问码，验证后 5 分钟内有效'});
-      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
+      if(req.method==='GET'&&path==='/api/status') {
+        const modelStatus=models?await models.status():null;
+        return json(res,200,{configured:modelStatus?modelStatus.text.enabled&&modelStatus.text.configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),models:modelStatus,tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
+      }
+      // 与网页复用同一份通用释义，不在小程序中复制维护 78 张牌和 64 卦资料。
+      if(req.method==='GET'&&path==='/api/gloss')return json(res,200,GLOSS);
       // 札记 API 只在持久化仓库可用时开放；测试实例可以显式不提供仓库。
       if(path.startsWith('/api/notes')) {
         if(!store)return json(res,503,{error:'请先配置 MySQL 持久化'});
@@ -124,23 +161,31 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
         const requestId=randomUUID();
         /** 只在完整回答落库后确认成功；断流和失败片段不会覆盖旧对话。 */
         const complete=async result=>{
-          if(note&&result.answer){note=await store.save({...note,answer:path==='/api/followup'?note.answer:result.answer,history:path==='/api/followup'?[...note.history,history.at(-1),{role:'assistant',content:result.answer}]:note.history,configured:true,lastRequestId:requestId},userId);}
+          if(note&&result.answer){
+            const next={...note,answer:path==='/api/followup'?note.answer:result.answer,history:path==='/api/followup'?[...note.history,history.at(-1),{role:'assistant',content:result.answer}]:note.history,configured:true,lastRequestId:requestId};
+            note=models?await models.finish(ticket,connection=>store.save(next,userId,connection)):await store.save(next,userId);
+          }
           return {record,note,requestId,parentQuestionId:record.id||null,...result};
         };
+        const abort=new AbortController();res.on('close',()=>{if(!res.writableEnded)abort.abort();});
+        let ticket;
         pending.set(record.id,userId);
         try {
+        if(models)ticket=await models.begin(record.tool==='palm'?'vision':'text',abort.signal);
+        /** 所有模型协议共用取消句柄，不能通过 JSON 路径绕过停用控制。 */
+        const invoke=options=>models?models.invoke(ticket,messages,options):model(messages,options.onDelta?{...options,signal:abort.signal}:undefined);
         if(req.headers.accept?.includes('text/event-stream')) {
           res.writeHead(200,{'Content-Type':'text/event-stream; charset=utf-8','Cache-Control':'no-store','X-Accel-Buffering':'no'});
           const send=(event,data)=>{if(!res.destroyed)res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);};
-          const abort=new AbortController();res.on('close',()=>{if(!res.writableEnded)abort.abort();});
           send('record',{record,requestId,parentQuestionId:record.id||null});
-          try{const result=await model(messages,{onDelta:text=>send('delta',{text}),signal:abort.signal});if(abort.signal.aborted)throw new Error('模型请求已中断');send('done',await complete(result));}
+          try{const result=await invoke({onDelta:text=>send('delta',{text})});if(abort.signal.aborted)throw new Error('模型请求已中断');send('done',await complete(result));}
           catch(error){send('error',{error:error.message?.startsWith('模型')?error.message:'解读或 MySQL 保存失败，请刷新札记确认后重试'});}
           return res.end();
         }
-        const result=await model(messages);
+        const result=await invoke({});
+        if(abort.signal.aborted)throw new Error('模型请求已中断');
         return json(res,200,await complete(result));
-        } finally {pending.delete(record.id);}
+        } finally {if(ticket)models.end(ticket);pending.delete(record.id);}
       }
       // 仅开放已知的 78 张本地 JPEG；不接受路径拼接或任意文件读取。
       if(req.method==='GET'&&/^\/assets\/tarot\/rws\/rws-(?:[0-9]|[1-6][0-9]|7[0-7])\.jpg$/.test(path)) {
@@ -149,7 +194,7 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
         catch(error){if(error.code==='ENOENT')return json(res,404,{error:'牌图不存在'});throw error;}
         res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=86400'});return res.end(image);
       }
-      const files={'/':['index.html','text/html; charset=utf-8'],'/account.js':['account.js','text/javascript; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg'],'/assets/coins/qianlong-obverse.jpg':['assets/coins/qianlong-obverse.jpg','image/jpeg'],'/assets/coins/qianlong-reverse.jpg':['assets/coins/qianlong-reverse.jpg','image/jpeg']};
+      const files={'/model-admin.js':['model-admin.js','text/javascript; charset=utf-8'],'/':['index.html','text/html; charset=utf-8'],'/account.js':['account.js','text/javascript; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg'],'/assets/coins/qianlong-obverse.jpg':['assets/coins/qianlong-obverse.jpg','image/jpeg'],'/assets/coins/qianlong-reverse.jpg':['assets/coins/qianlong-reverse.jpg','image/jpeg']};
       if(req.method==='GET'&&files[path]) {const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});return res.end(await readFile(new URL(`./public/${name}`,import.meta.url)));}
       json(res,404,{error:'页面不存在'});
     } catch(error) {
@@ -167,6 +212,15 @@ function validateNote(note) {
   for(const key of Object.keys(note))if(!['id','created','record','answer','history','revealed','configured','lastRequestId'].includes(key))delete note[key];
   delete note.record.image;
 }
+/** 本地密钥落入忽略目录；云端必须显式设置共享密钥，不使用临时磁盘。 */
+async function modelConfigSecret(cloud) {
+  if(process.env.MODEL_CONFIG_SECRET)return process.env.MODEL_CONFIG_SECRET;
+  if(cloud)throw new Error('请配置 MODEL_CONFIG_SECRET（64 位十六进制，所有部署相同）');
+  const directory=new URL('./.local/',import.meta.url),path=new URL('model-config.key',directory);
+  await mkdir(directory,{recursive:true});
+  try{await writeFile(path,randomBytes(32).toString('hex'),{mode:0o600,flag:'wx'});}catch(error){if(error.code!=='EEXIST')throw error;}
+  return (await readFile(path,'utf8')).trim();
+}
 // 生产入口必须连接 MySQL 成功后才监听，避免把未持久化结果显示为已保存。
 if(process.argv[1]===fileURLToPath(import.meta.url)) {
   const deployment=deploymentConfig();
@@ -175,7 +229,9 @@ if(process.argv[1]===fileURLToPath(import.meta.url)) {
   const auth=deployment.cloud
     ?await AccessControl.openDatabase(store.pool,{password:process.env.ADMIN_INITIAL_PASSWORD,code:process.env.AI_INITIAL_CODE})
     :await AccessControl.open(fileURLToPath(new URL('./.local/',import.meta.url)));
-  const app=createApp({store,auth,accounts,deployment});
+  const wechat=new WechatAccounts({pool:store.pool});await wechat.init();
+  const models=new ModelSettings({pool:store.pool,secret:await modelConfigSecret(deployment.cloud)});await models.init();
+  const app=createApp({store,auth,accounts,wechat,models,deployment});
   app.listen(deployment.port,deployment.bind,()=>console.log(`清和已启动：${deployment.origin||`http://127.0.0.1:${deployment.port}`}（MySQL 持久化）`));
   for(const signal of ['SIGINT','SIGTERM'])process.once(signal,()=>app.close(async()=>{await store.close();process.exit(0);}));
 }

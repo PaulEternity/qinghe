@@ -1,0 +1,6 @@
+{
+  "pages": ["pages/home/index", "pages/reading/index", "pages/note/index", "pages/history/index", "pages/account/index", "pages/admin/index"],
+  "window": {"navigationBarTitleText": "清和", "navigationBarBackgroundColor": "#f5f1e8", "navigationBarTextStyle": "black", "backgroundColor": "#f5f1e8"},
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

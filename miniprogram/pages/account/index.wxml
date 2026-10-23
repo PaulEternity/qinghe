@@ -1,0 +1,5 @@
+<view class="container"><view class="eyebrow">属于自己的记录</view><view class="title">我的账号</view>
+  <view class="panel" wx:if="{{!user}}"><view>使用微信登录清和</view><view class="help">这是全新的小程序账号，不会关联网页账号或迁移旧札记。不获取你的手机号、头像、昵称或定位。</view><button class="primary" bindtap="login" loading="{{busy}}" disabled="{{busy}}">微信登录</button></view>
+  <view class="panel" wx:else><view>{{admin?'管理员 · 微信用户':'微信用户'}}</view><view class="help">札记仅属于你的账号。管理员使用 AI 也需要六位访问码。</view><view class="label">账号标识</view><view class="wrap help" selectable>{{user.id}}</view><button bindtap="copyId">复制账号标识</button><button wx:if="{{admin}}" bindtap="openAdmin">进入管理设置</button><button class="danger" bindtap="logout" disabled="{{busy}}">退出登录</button></view>
+  <view class="error">{{error}}</view>
+</view>

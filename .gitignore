@@ -3,3 +3,6 @@ node_modules/
 .DS_Store
 
 .local/
+
+# 微信开发者工具生成的本机偏好，不属于体验版源码。
+miniprogram/project.private.config.json

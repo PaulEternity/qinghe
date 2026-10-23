@@ -57,17 +57,32 @@ export class AccessControl {
     const state = typeof rows[0].value === 'string' ? JSON.parse(rows[0].value) : rows[0].value;
     if (state.username !== 'admin' || ![state.password,state.code].every(v=>v&&/^[a-f0-9]{32}$/.test(v.salt)&&/^[a-f0-9]{64}$/.test(v.digest))) throw new Error('云端管理员配置损坏');
     let revision = rows[0].revision;
-    return new AccessControl({ state, secure, persist: async next => {
+    const control = new AccessControl({ state, secure, persist: async next => {
+      const expected = revision;
       const [result] = await pool.execute('UPDATE app_settings SET value=?,revision=revision+1 WHERE id=? AND revision=?', [JSON.stringify(next), 'access', revision]);
       if (result.affectedRows !== 1) throw new Error('管理员配置已被修改，请重启服务后重试');
-      revision++;
+      revision = Math.max(revision, expected + 1);
     } });
+    /** 多部署每次鉴权前刷新配置，分别撤销改码/改密影响的本地会话。 */
+    control.refresh = async () => {
+      if (control.updating) return;
+      const [latest] = await pool.execute('SELECT value,revision FROM app_settings WHERE id=?', ['access']);
+      if (!latest[0]) throw new Error('请检查共享访问配置');
+      if (Number(latest[0].revision) <= revision) return;
+      const next = typeof latest[0].value === 'string' ? JSON.parse(latest[0].value) : latest[0].value;
+      if (next.code.digest !== control.state.code.digest) control.revoke('ai');
+      if (next.password.digest !== control.state.password.digest) control.revoke('admin');
+      control.state = next; revision = Number(latest[0].revision);
+    };
+    return control;
   }
 
+  /** 微信管理员权限来自已验证会话；AI 授权仍绑定具体用户会话。 */
   session(req, role) {
+    if (role === 'admin' && req.wechatAuth && req.user?.admin) return { role, key: req.userSessionKey };
     const name = role === 'admin' ? 'qinghe_admin' : 'qinghe_ai';
     const cookie = (req.headers.cookie || '').split(';').map(v => v.trim()).find(v => v.startsWith(`${name}=`));
-    const token = cookie?.slice(name.length + 1);
+    const token = role === 'ai' && req.wechatAuth ? req.headers['x-qinghe-ai'] : cookie?.slice(name.length + 1);
     if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
     const key = tokenHash(token), session = this.sessions.get(key);
     if (!session || session.role !== role) return null;
@@ -94,6 +109,7 @@ export class AccessControl {
   /** All paths that invoke a model must pass this check before parsing or streaming. */
   authorized(req) { return Boolean(this.session(req, 'ai')); }
 
+  /** 浏览器与微信复用访问码规则；微信不依赖 Cookie 接收 AI 临时令牌。 */
   async handle(req, res, path, readBody, reply) {
     if (!path.startsWith('/api/access/')) return false;
     const send = (status, data) => { reply(res, status, data); return true; };
@@ -118,7 +134,9 @@ export class AccessControl {
         return send(401, { error: role === 'admin' ? '账号或密码不正确' : '请输入正确的六位数字访问码' });
       }
       this.failures.delete(role);
-      return send(200, { ok: true, expiresAt: this.issue(res, role, req.userSessionKey || null) });
+      const expiresAt = this.issue(res, role, req.userSessionKey || null);
+      const aiToken = req.wechatAuth && role === 'ai' ? res.getHeader('Set-Cookie').split(';')[0].split('=')[1] : undefined;
+      return send(200, { ok: true, expiresAt, ...(aiToken ? { aiToken } : {}) });
     }
     const admin = this.session(req, 'admin');
     if (!admin) return send(401, { error: '请先登录管理员账号' });

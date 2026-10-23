@@ -1,0 +1,8 @@
+<view class="container">
+  <view class="eyebrow">留一点时间，与自己对话</view><view class="brand">清和</view>
+  <view class="title">万物有时，心自从容。</view><view class="subtitle">计算交给工具，选择留给自己。</view>
+  <view class="nav"><button bindtap="openAccount">{{user ? '我的账号' : '微信登录'}}</button><button bindtap="openHistory">我的札记</button><button wx:if="{{admin}}" bindtap="openAdmin">管理设置</button></view>
+  <view class="error" role="alert">{{error}}</view><view wx:if="{{loading}}" class="help">正在连接清和…</view>
+  <view class="grid"><view class="card" wx:for="{{tools}}" wx:key="id" data-id="{{item.id}}" bindtap="openTool"><view class="glyph">{{item.icon}}</view><view class="card-title">{{item.name}}</view><view class="help">{{item.desc}}</view></view></view>
+  <view class="footer">传统文化与自我反思参考，不作为事实预测。</view>
+</view>

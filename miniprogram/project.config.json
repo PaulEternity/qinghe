@@ -1,0 +1,7 @@
+{
+  "appid": "touristappid",
+  "projectname": "qinghe",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "setting": {"es6": true, "enhance": true, "minified": true, "urlCheck": true}
+}

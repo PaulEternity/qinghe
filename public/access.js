@@ -1,4 +1,5 @@
 import { showAccount } from './account.js';
+import { renderModelSettings } from './model-admin.js';
 let verification = null;
 
 async function request(path, input) {
@@ -77,6 +78,8 @@ export async function adminPage(main) {
       try { await request('/api/access/logout', {}); if (location.hash === hash) await adminPage(main); }
       catch (error) { alert(error.message); }
     });
+    await renderModelSettings(main, accessFetch);
+    if (location.hash !== hash) return;
     if (status.admin) {
       const legacy = document.createElement('section');
       legacy.className = 'panel legacy-panel';

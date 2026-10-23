@@ -29,6 +29,8 @@ services:
         generateValue: true
       - key: AI_INITIAL_CODE
         sync: false
+      - key: MODEL_CONFIG_SECRET
+        sync: false
       - key: MODEL_BASE_URL
         value: https://api.deepseek.com
       - key: MODEL_NAME
