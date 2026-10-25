@@ -64,6 +64,34 @@ test('云端拒绝非本站 Host、跨站和缺失 Origin 的写请求；健康�
   assert.equal(unauthenticated.status, 401);
 });
 
+test('云托管 Host 仅精确放行配置值，保留公网来源和微信账号鉴权', async t => {
+  t.mock.method(console,'warn',()=>{});
+  const host='express-xhac-prod-d4goavctzfcc4e777-1516597015.ap-shanghai.run.wxcloudrun.com';
+  const env={APP_MODE:'cloud',PUBLIC_ORIGIN:'https://qinghe.example.com'};
+  for(const value of ['https://'+host,host+':10000',host+'/',host+'?x=1',host+'#x','user@'+host,'evil.example.com']) {
+    assert.throws(()=>deploymentConfig({...env,CLOUDRUN_HOST:value}),/CLOUDRUN_HOST/);
+  }
+  assert.throws(()=>deploymentConfig({CLOUDRUN_HOST:host}),/CLOUDRUN_HOST/);
+  const deployment=deploymentConfig({...env,CLOUDRUN_HOST:host});
+  assert.equal(deployment.origin,env.PUBLIC_ORIGIN);
+  const server=createApp({deployment,wechat:{current:async()=>null,login:async()=>({token:'test-session'})}});
+  server.listen(0,'127.0.0.1');await once(server,'listening');
+  t.after(()=>{server.close();server.closeAllConnections();});
+  const base=`http://127.0.0.1:${server.address().port}`;
+  for(const allowed of [deployment.host,host]) {
+    assert.equal((await fetch(base+'/api/status',{headers:{Host:allowed}})).status,200);
+  }
+  for(const denied of ['other.ap-shanghai.run.wxcloudrun.com',host+'.evil.com','evil.example.com']) {
+    assert.equal((await fetch(base+'/api/status',{headers:{Host:denied,'X-Forwarded-Host':host,'X-WX-SERVICE':'express-xhac'}})).status,403);
+  }
+  const login=await fetch(base+'/api/wechat/login',{method:'POST',headers:{Host:host,'Content-Type':'application/json'},body:'{"code":"test-code"}'});
+  assert.equal(login.status,200);assert.equal((await login.json()).token,'test-session');
+  assert.equal((await fetch(base+'/api/notes',{headers:{Host:host,Authorization:'Bearer invalid'}})).status,401);
+  for(const origin of [undefined,'https://'+host,'https://evil.example']) {
+    assert.equal((await fetch(base+'/api/account/login',{method:'POST',headers:{Host:host,'Content-Type':'application/json',...(origin?{Origin:origin}:{})},body:'{}'})).status,403);
+  }
+});
+
 test('云端用户、AI 和管理员 Cookie 均包含 Secure，清除 Cookie 也保留保护', async () => {
   const headers = new Map();
   const res = { setHeader: (name,value) => headers.set(name,value) };

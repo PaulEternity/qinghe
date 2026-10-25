@@ -13,5 +13,10 @@ export function deploymentConfig(env = process.env) {
     if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error('公网地址必须是 HTTPS 根地址');
     origin = url.origin;
   }
-  return { cloud, port, bind: cloud ? '0.0.0.0' : '127.0.0.1', origin, host: origin ? new URL(origin).host : null };
+  const cloudrunHost = env.CLOUDRUN_HOST || null;
+  if (cloudrunHost) {
+    const url = new URL('https://' + cloudrunHost);
+    if (!cloud || url.hostname !== cloudrunHost || !cloudrunHost.endsWith('.run.wxcloudrun.com')) throw new Error('CLOUDRUN_HOST 必须是云端服务的完整 wxcloudrun 域名，不带协议、端口或路径');
+  }
+  return { cloud, port, bind: cloud ? '0.0.0.0' : '127.0.0.1', origin, host: origin ? new URL(origin).host : null, cloudrunHost };
 }

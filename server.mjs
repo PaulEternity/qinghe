@@ -43,7 +43,7 @@ export function createApp({model=askModel,store,models=null,deployment=deploymen
     if(deployment.cloud)res.setHeader('Strict-Transport-Security','max-age=31536000');
     if(req.method==='GET'&&req.url==='/healthz')return json(res,200,{ok:true});
     const host=req.headers.host||'';
-    if(deployment.cloud?host!==deployment.host:!/^(127\.0\.0\.1|localhost):\d+$/.test(host)) {
+    if(deployment.cloud?(host!==deployment.host&&host!==deployment.cloudrunHost):!/^(127\.0\.0\.1|localhost):\d+$/.test(host)) {
       console.warn(JSON.stringify({event:'qinghe_host_rejected',receivedHost:host.slice(0,253),expectedHost:deployment.host}));
       return json(res,403,{error:'访问地址不允许'});
     }

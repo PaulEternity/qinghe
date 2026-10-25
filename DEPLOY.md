@@ -2,6 +2,8 @@
 
 ## 微信云托管 Docker 部署
 
+小程序 `callContainer` 通道可能使用不同于公网域名的 Host。本环境需额外设置 `CLOUDRUN_HOST=express-xhac-prod-d4goavctzfcc4e777-1516597015.ap-shanghai.run.wxcloudrun.com`。保留 `PUBLIC_ORIGIN=https://express-xhac-335091-7-1516597015.sh.run.tcloudbase.com`，不要用内部通道域名替换公网来源。该设置仅额外允许一个精确 Host，不信任转发头、不放行任意 wxcloudrun 域名，也不授予用户身份或放宽 Origin 校验。部署其他服务时根据 `qinghe_host_rejected` 日志配置其实际 Host。
+
 仓库根目录已提供 `Dockerfile` 和 `.dockerignore`。选择包含这两个文件的 GitHub 分支，构建目录设为仓库根目录、Dockerfile 路径设为 `Dockerfile`（若页面要求填写），服务端口填 `10000`。镜像默认使用云端模式，监听 `0.0.0.0:10000`。
 
 在云托管环境变量中配置 `PUBLIC_ORIGIN=https://该服务实际公网域名`（不带路径）、下文列出的 `MYSQL_*`、`ADMIN_INITIAL_PASSWORD`、`AI_INITIAL_CODE`、`MODEL_CONFIG_SECRET`，以及小程序需要的 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET`。模型参数按下文配置；数据库连接方式及 TLS 设置以实际数据库为准。本地 `.env` 和 `.local` 不会进入镜像。
