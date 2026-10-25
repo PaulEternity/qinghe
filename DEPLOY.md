@@ -8,6 +8,8 @@
 
 部署成功后检查 `/healthz` 和 `/api/status`。Dockerfile 只解决后端构建和启动；小程序仍需接入此服务，并完成对应的通信配置。
 
+若微信云托管自带 MySQL 未启用 TLS，确认服务和数据库处于同一受控 VPC 后，可以设置 `MYSQL_SSL=false` 和 `MYSQL_ALLOW_INSECURE_PRIVATE=true`。该例外仅接受 `10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16` 内的字面 IPv4 地址，不接受域名或公网 IP。此时数据库连接不加密；程序只校验配置地址，无法确认 VPC 隔离，应由部署者确保网络可信。公网数据库仍需 `MYSQL_SSL=true` 并验证证书，不会自动降级。
+
 使用仓库 `PaulEternity/qinghe` 的 `master` 分支。`render.yaml` 只创建一个 Free Web Service，不创建收费数据库或磁盘。免费托管不包含 DeepSeek API 费用。Render 免费实例会休眠，唤醒需要等待；TiDB 额度用尽也可能暂停服务。
 
 ## 1. 创建数据库

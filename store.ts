@@ -1,5 +1,6 @@
 /** MySQL 札记仓库：整条记录原子更新，版本号阻止并发覆盖已完成的解读。 */
 import mysql, {type Pool, type PoolConnection, type RowDataPacket, type ResultSetHeader} from 'mysql2/promise';
+import { isIP } from 'node:net';
 
 function owner(id: string) {
   if (typeof id !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(id)) throw new Error('请先登录用户账号');
@@ -22,7 +23,12 @@ export class MysqlStore {
     if (!env.MYSQL_USER || !env.MYSQL_PASSWORD || !env.MYSQL_DATABASE) throw new Error('请先配置 MySQL 专用账号和数据库');
     const remote = !['127.0.0.1','localhost'].includes(env.MYSQL_HOST || '127.0.0.1');
     if (remote && env.APP_MODE !== 'cloud') throw new Error('MySQL 远程连接需要 APP_MODE=cloud');
-    if ((remote || env.APP_MODE === 'cloud') && env.MYSQL_SSL !== 'true') throw new Error('云端 MySQL 必须设置 MYSQL_SSL=true');
+    const host = env.MYSQL_HOST || '127.0.0.1';
+    const [first, second] = host.split('.').map(Number);
+    const privateIPv4 = isIP(host) === 4 && (first === 10 || (first === 172 && second >= 16 && second <= 31) || (first === 192 && second === 168));
+    // 私网明文仅供已确认的同 VPC 数据库；不根据 TLS 握手失败自动降级。
+    const privatePlaintext = env.APP_MODE === 'cloud' && env.MYSQL_SSL === 'false' && env.MYSQL_ALLOW_INSECURE_PRIVATE === 'true' && privateIPv4;
+    if ((remote || env.APP_MODE === 'cloud') && env.MYSQL_SSL !== 'true' && !privatePlaintext) throw new Error('云端 MySQL 必须设置 MYSQL_SSL=true；同 VPC 私网 IPv4 可显式设置 MYSQL_SSL=false 和 MYSQL_ALLOW_INSECURE_PRIVATE=true');
     this.pool = mysql.createPool({host:env.MYSQL_HOST||'127.0.0.1',port:Number(env.MYSQL_PORT||3307),user:env.MYSQL_USER,password:env.MYSQL_PASSWORD,database:env.MYSQL_DATABASE,connectionLimit:4,charset:'utf8mb4',timezone:'Z',connectTimeout:10000,ssl:env.MYSQL_SSL==='true'?{rejectUnauthorized:true,minVersion:'TLSv1.2',verifyIdentity:true}:undefined});
   }
   /** 建立缺失的表；数据库不可用时启动失败，不降级成浏览器存储。 */

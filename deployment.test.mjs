@@ -22,6 +22,26 @@ test('云端配置要求固定 HTTPS 来源；远程数据库必须校验证书�
   await store.close();
 });
 
+test('云端数据库非 TLS 连接必须显式授权且仅接受 RFC1918 字面 IPv4', async () => {
+  const env = { APP_MODE: 'cloud', MYSQL_USER: 'test', MYSQL_PASSWORD: 'test', MYSQL_DATABASE: 'test', MYSQL_SSL: 'false', MYSQL_ALLOW_INSECURE_PRIVATE: 'true' };
+  for (const host of ['10.29.101.116','172.16.0.1','172.31.255.254','192.168.1.2']) {
+    const config = { ...env, MYSQL_HOST: host };
+    const store = new MysqlStore(config);
+    try { assert.ok(!store.pool.pool.config.connectionConfig.ssl); }
+    finally { await store.close(); }
+    for (const override of [{MYSQL_ALLOW_INSECURE_PRIVATE:undefined},{MYSQL_ALLOW_INSECURE_PRIVATE:'false'},{MYSQL_SSL:undefined}]) {
+      assert.throws(() => new MysqlStore({ ...config, ...override }), /MYSQL_SSL/);
+    }
+    assert.throws(() => new MysqlStore({ ...config, APP_MODE:'local' }), /APP_MODE/);
+    const secure = new MysqlStore({ ...config, MYSQL_SSL:'true' });
+    try { assert.equal(secure.pool.pool.config.connectionConfig.ssl.rejectUnauthorized, true); }
+    finally { await secure.close(); }
+  }
+  for (const host of ['8.8.8.8','172.15.255.255','172.32.0.1','192.169.0.1','127.0.0.1','localhost','db.internal','10.29.101.116.example.com','10.0.0.999','010.0.0.1','::1','::ffff:10.29.101.116',undefined]) {
+    assert.throws(() => new MysqlStore({ ...env, MYSQL_HOST:host }), /MYSQL_SSL/);
+  }
+});
+
 test('云端拒绝非本站 Host、跨站和缺失 Origin 的写请求；健康检查不暴露数据', async t => {
   const deployment = deploymentConfig({ APP_MODE: 'cloud', PUBLIC_ORIGIN: 'https://qinghe.onrender.com' });
   const server = createApp({ deployment });
