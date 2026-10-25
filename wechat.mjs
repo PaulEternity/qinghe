@@ -63,12 +63,22 @@ export class WechatAccounts {
     if (typeof code !== 'string' || !/^[A-Za-z0-9_-]{1,256}$/.test(code)) throw new Error('微信登录码无效，请重新登录');
     const url = new URL('https://api.weixin.qq.com/sns/jscode2session');
     url.search = new URLSearchParams({ appid: this.env.WECHAT_APP_ID, secret: this.env.WECHAT_APP_SECRET, js_code: code, grant_type: 'authorization_code' }).toString();
-    let data;
+    let data, status = null, phase = 'connect';
     try {
       const response = await this.fetcher(url, { signal: AbortSignal.timeout(15_000), redirect: 'error' });
+      status = Number.isInteger(response.status) ? response.status : null;
+      phase = 'http';
       if (!response.ok) throw new Error();
+      phase = 'json';
       data = await response.json();
-    } catch { throw new Error('微信登录服务暂不可用，请稍后重试'); }
+    } catch (error) {
+      // 原始异常可能包含带 AppSecret/code 的 URL，仅记录固定分类和 HTTP 状态。
+      const codes = ['ENOTFOUND','EAI_AGAIN','ETIMEDOUT','ECONNREFUSED','ECONNRESET','ENETUNREACH','EHOSTUNREACH','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT','UND_ERR_SOCKET','CERT_HAS_EXPIRED','UNABLE_TO_VERIFY_LEAF_SIGNATURE','SELF_SIGNED_CERT_IN_CHAIN','DEPTH_ZERO_SELF_SIGNED_CERT','ERR_TLS_CERT_ALTNAME_INVALID'];
+      const code = error?.cause?.code || error?.code;
+      const reason = codes.includes(code) ? code : ['TimeoutError','AbortError','SyntaxError'].includes(error?.name) ? error.name : 'UNKNOWN';
+      console.error(JSON.stringify({event:'qinghe_wechat_exchange_failed',phase,status,reason}));
+      throw new Error('微信登录服务暂不可用，请稍后重试');
+    }
     if (data.errcode || typeof data.openid !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(data.openid)) throw new Error('微信登录码已失效，请重新登录');
     const appid = this.env.WECHAT_APP_ID;
     await this.pool.execute('INSERT IGNORE INTO wechat_users (id,appid,openid) VALUES (?,?,?)', ['wx_' + randomUUID(), appid, data.openid]);

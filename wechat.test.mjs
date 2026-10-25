@@ -13,6 +13,26 @@ import {MemoryPool} from './support/memory-pool.mjs';
 import {httpFetch} from './support/http-request.mjs';
 
 const env={WECHAT_APP_ID:'wx1234567890abcdef',WECHAT_APP_SECRET:'test-app-secret',MODEL_BASE_URL:'https://model.example/v1',MODEL_API_KEY:'test-model-secret',MODEL_NAME:'text',APP_MODE:'cloud'};
+
+test('微信换码失败仅记录安全分类，不记录密钥、登录码、URL、响应正文且不重试',async t=>{
+  const logs=[];t.mock.method(console,'error',message=>logs.push(JSON.parse(message)));
+  const secretURL='https://api.weixin.qq.com/?secret=test-app-secret&js_code=private-code';
+  const cases=[
+    {fetcher:async()=>{throw new TypeError(secretURL,{cause:{code:'ENOTFOUND'}});},phase:'connect',status:null,reason:'ENOTFOUND'},
+    {fetcher:async()=>{throw new DOMException(secretURL,'TimeoutError');},phase:'connect',status:null,reason:'TimeoutError'},
+    {fetcher:async()=>new Response(secretURL,{status:503}),phase:'http',status:503,reason:'UNKNOWN'},
+    {fetcher:async()=>new Response(secretURL,{status:200}),phase:'json',status:200,reason:'SyntaxError'},
+    {fetcher:async()=>{throw {message:secretURL,code:secretURL};},phase:'connect',status:null,reason:'UNKNOWN'}
+  ];
+  for(const item of cases){
+    let calls=0;
+    const accounts=new WechatAccounts({pool:{execute:()=>assert.fail('失败时不能创建账号或会话')},env,fetcher:async(...args)=>{calls++;return item.fetcher(...args);}});
+    await assert.rejects(accounts.login('private-code',{socket:{remoteAddress:'127.0.0.1'}}),/微信登录服务暂不可用/);
+    assert.equal(calls,1);
+    assert.deepEqual(logs.at(-1),{event:'qinghe_wechat_exchange_failed',phase:item.phase,status:item.status,reason:item.reason});
+  }
+  assert.doesNotMatch(JSON.stringify(logs),/test-app-secret|private-code|api\.weixin\.qq\.com/);
+});
 /** 无普通用户 Cookie 的原生请求，与现有浏览器 CSRF 检查同时运行。 */
 async function fixture(t,{model}={}){
   const pool=new MemoryPool();let now=Date.now(),calls=0;
