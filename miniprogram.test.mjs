@@ -15,6 +15,26 @@ function load(file,extras={},cache=new Map()){
 }
 const clean=value=>JSON.parse(JSON.stringify(value));
 
+test('网络失败区分域名、超时和证书，控制台保留原始原因且不记录登录凭证',async()=>{
+  for(const [detail,expected] of [
+    ['request:fail url not in domain list',/域名尚未获微信授权/],
+    ['request:fail timeout',/响应超时/],
+    ['request:fail ssl hand shake error',/安全连接失败/],
+    ['request:fail err_name_not_resolved',/无法连接清和服务/],
+    ['',/无法连接清和服务/]
+  ]){
+    const logs=[];
+    const client=load('miniprogram/utils/api.js',{
+      wx:{getStorageSync:()=>null,request:options=>options.fail({errMsg:detail})},
+      console:{error:(...args)=>logs.push(args)}
+    });
+    await assert.rejects(client.api('/api/wechat/login',{code:'private-login-code'}),expected);
+    assert.equal(logs[0][1].errMsg,detail);
+    assert.ok(logs[0][1].url.endsWith('/api/wechat/login'));
+    assert.doesNotMatch(JSON.stringify(logs),/private-login-code/);
+  }
+});
+
 test('全部九个小程序表单的参数可由现有引擎生成盘面，含双人校正与手摇爻位',()=>{
   const {fieldsFor,payloadFor,updateFields}=load('miniprogram/utils/forms.js');
   let count=0;
@@ -63,6 +83,7 @@ test('输入访问码期间离开结果页，不会在验证成功后偷偷重�
     getStorageSync:()=>({token:'a'.repeat(64)}),
     showModal:options=>{modal=options;ready();},
     request:options=>{const task={abort(){},onChunkReceived(){}};setImmediate(()=>{
+      if(options.url.endsWith('/api/access/status'))return options.success({statusCode:200,data:{expiresAt:0}});
       if(options.url.endsWith('/api/access/verify'))options.success({statusCode:200,data:{aiToken:'b'.repeat(64)}});
       else{calls++;options.success({statusCode:401,data:new TextEncoder().encode(JSON.stringify({code:'AI_ACCESS_REQUIRED'})).buffer});}
     });return task;}
@@ -70,5 +91,65 @@ test('输入访问码期间离开结果页，不会在验证成功后偷偷重�
   const client=load('miniprogram/utils/api.js',{wx,getApp:()=>({globalData:{}})});
   const pending=client.stream('/api/interpret',{},()=>{}).catch(error=>error);
   await opened;client.abortStreams();await modal.success({confirm:true,content:'001234'});
-  assert.match((await pending).message,/页面已离开/);assert.equal(calls,1);
+  assert.match((await pending).message,/页面已离开/);assert.equal(calls,0);
+});
+
+test('仅开发版模拟器使用本机后端，手机和体验/正式版保留 HTTPS',()=>{
+  const configured=(envVersion,platform)=>load('miniprogram/config.js',{wx:{
+    getAccountInfoSync:()=>({miniProgram:{envVersion}}),
+    getSystemInfoSync:()=>({platform})
+  }}).baseUrl;
+  assert.equal(configured('develop','devtools'),'http://127.0.0.1:3187');
+  for(const [env,platform] of [['develop','ios'],['develop','android'],['trial','devtools'],['release','devtools']]){
+    assert.equal(configured(env,platform),'https://qinghe-u3gv.onrender.com');
+  }
+});
+
+test('AI 的 401 响应无论字符串、对象或二进制，均先验证访问码再解读',async()=>{
+  for(const format of ['string','object','buffer','chunked']){
+    let requests=0,modals=0,chunkHandler;
+    const error={code:'AI_ACCESS_REQUIRED',error:'请验证访问码'};
+    const wx={
+      getStorageSync:()=>({token:'a'.repeat(64)}),
+      showModal:options=>{modals++;setImmediate(()=>options.success({confirm:true,content:'001234'}));},
+      request:options=>{
+        const task={abort(){},onChunkReceived(fn){chunkHandler=fn;}};
+        if(options.url.endsWith('/api/access/status')){setImmediate(()=>options.success({statusCode:200,data:{expiresAt:Date.now()+60000}}));return task;}
+        const current=++requests;
+        setImmediate(()=>{
+          if(options.url.endsWith('/api/access/verify'))return options.success({statusCode:200,data:{aiToken:'b'.repeat(64)}});
+          if(current===1){
+            const text=JSON.stringify(error),buffer=new TextEncoder().encode(text).buffer;
+            if(format==='chunked')chunkHandler({data:buffer});
+            return options.success({statusCode:401,data:format==='object'?error:format==='string'?text:format==='chunked'?new ArrayBuffer(0):buffer});
+          }
+          assert.equal(options.header['X-Qinghe-AI'],'b'.repeat(64));
+          options.success({statusCode:200,data:new TextEncoder().encode('event: done\ndata: {"answer":"已完成"}\n\n').buffer});
+        });
+        return task;
+      }
+    };
+    const client=load('miniprogram/utils/api.js',{wx,getApp:()=>({globalData:{}})});
+    assert.equal((await client.stream('/api/interpret',{},()=>{})).answer,'已完成',format);
+    assert.equal(modals,1,format);assert.equal(requests,3,format);
+  }
+});
+test('首次解读先查询访问码状态，弹窗验证完成后才发出模型请求',async()=>{
+  const order=[];
+  const wx={
+    getStorageSync:()=>({token:'a'.repeat(64)}),
+    showModal:options=>{order.push('modal');setImmediate(()=>options.success({confirm:true,content:'001234'}));},
+    request:options=>{
+      const task={abort(){},onChunkReceived(){}};
+      setImmediate(()=>{
+        if(options.url.endsWith('/api/access/status')){order.push('status');return options.success({statusCode:200,data:{expiresAt:0}});}
+        if(options.url.endsWith('/api/access/verify')){order.push('verify');return options.success({statusCode:200,data:{aiToken:'b'.repeat(64)}});}
+        order.push('interpret');assert.equal(options.header['X-Qinghe-AI'],'b'.repeat(64));
+        options.success({statusCode:200,data:new TextEncoder().encode('event: done\ndata: {"answer":"已完成"}\n\n').buffer});
+      });return task;
+    }
+  };
+  const client=load('miniprogram/utils/api.js',{wx,getApp:()=>({globalData:{}})});
+  assert.equal((await client.stream('/api/interpret',{},()=>{})).answer,'已完成');
+  assert.deepEqual(order,['status','modal','verify','interpret']);
 });

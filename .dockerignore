@@ -1,0 +1,13 @@
+.git
+.gitnexus
+.claude
+.agents
+.codex
+.idea
+.local
+.env
+.env.*
+**/node_modules
+**/*.test.mjs
+miniprogram
+*.log

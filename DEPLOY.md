@@ -1,5 +1,13 @@
 # 免费部署：Render + TiDB Cloud
 
+## 微信云托管 Docker 部署
+
+仓库根目录已提供 `Dockerfile` 和 `.dockerignore`。选择包含这两个文件的 GitHub 分支，构建目录设为仓库根目录、Dockerfile 路径设为 `Dockerfile`（若页面要求填写），服务端口填 `10000`。镜像默认使用云端模式，监听 `0.0.0.0:10000`。
+
+在云托管环境变量中配置 `PUBLIC_ORIGIN=https://该服务实际公网域名`（不带路径）、下文列出的 `MYSQL_*`、`ADMIN_INITIAL_PASSWORD`、`AI_INITIAL_CODE`、`MODEL_CONFIG_SECRET`，以及小程序需要的 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET`。模型参数按下文配置；数据库连接方式及 TLS 设置以实际数据库为准。本地 `.env` 和 `.local` 不会进入镜像。
+
+部署成功后检查 `/healthz` 和 `/api/status`。Dockerfile 只解决后端构建和启动；小程序仍需接入此服务，并完成对应的通信配置。
+
 使用仓库 `PaulEternity/qinghe` 的 `master` 分支。`render.yaml` 只创建一个 Free Web Service，不创建收费数据库或磁盘。免费托管不包含 DeepSeek API 费用。Render 免费实例会休眠，唤醒需要等待；TiDB 额度用尽也可能暂停服务。
 
 ## 1. 创建数据库

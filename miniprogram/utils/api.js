@@ -23,7 +23,15 @@ function headers(stream) {
 /** 微信请求的 HTTP 错误和网络错误统一变成可显示的异常。 */
 function send(path,input) {
   return new Promise((resolve,reject)=>wx.request({url:baseUrl+path,method:input===undefined?'GET':'POST',data:input,header:headers(false),timeout:95000,
-    success:resolve,fail:()=>reject(new Error('网络连接失败，请稍后重试'))}));
+    success:resolve,fail:error=>{
+      const detail=error?.errMsg||'';
+      console.error('清和接口连接失败',{url:baseUrl+path,errMsg:detail});
+      let message='无法连接清和服务，请稍后重试或联系维护者';
+      if(/not in domain list|域名.*不合法/i.test(detail))message='服务域名尚未获微信授权，请联系维护者配置后重新发布';
+      else if(/timeout|timed out/i.test(detail))message='清和服务响应超时，请稍后重试';
+      else if(/ssl|tls|certificate|cert\b/i.test(detail))message='清和服务安全连接失败，请联系维护者检查证书';
+      reject(new Error(message));
+    }}));
 }
 /** 访问码验证只在用户主动调用 AI 时弹出，不自动记住访问码。 */
 async function verify() {
@@ -66,9 +74,19 @@ function streamOnce(path,input,onDelta) {
       success:response=>{
         if(failed)return;tasks.delete(task);
         try{
+          if(response.statusCode<200||response.statusCode>=300){
+            let data=response.data;
+            try{
+              if(decoder.raw)data=JSON.parse(decoder.raw);
+              else if(typeof data==='string')data=JSON.parse(data);
+              else if(Object.prototype.toString.call(data)==='[object ArrayBuffer]'){decoder.push(data,true);data=JSON.parse(decoder.raw);}
+              if(!data||typeof data!=='object'||(typeof data.error!=='string'&&typeof data.code!=='string'))throw new Error();
+            }catch{data={error:'服务响应无效'};}
+            return resolve({statusCode:response.statusCode,data});
+          }
           if(!chunked&&response.data)decoder.push(response.data);
           decoder.push(null,true);
-          if(response.statusCode<200||response.statusCode>=300){let data;try{data=JSON.parse(decoder.raw);}catch{data={error:'服务响应无效'};}return resolve({statusCode:response.statusCode,data});}
+
           if(!decoder.result)throw new Error('连接提前中断，未保存为完整解读');
           resolve({statusCode:200,data:decoder.result});
         }catch(error){stop(error);}
@@ -81,6 +99,11 @@ function streamOnce(path,input,onDelta) {
 /** 仅在模型尚未开始执行的 401 响应后重试，不重复发送失败的模型请求。 */
 async function stream(path,input,onDelta,retry=true,version=streamVersion) {
   if(version!==streamVersion)throw new Error('页面已离开，模型请求已取消');
+  if(retry){
+    const access=await api('/api/access/status');
+    if(!access.expiresAt||access.expiresAt<=Date.now())await verify();
+    if(version!==streamVersion)throw new Error('页面已离开，模型请求已取消');
+  }
   const response=await streamOnce(path,input,onDelta);
   if(response.statusCode===401&&response.data.code==='AI_ACCESS_REQUIRED'&&retry){await verify();return stream(path,input,onDelta,false,version);}
   if(response.statusCode!==200)throw failure(response);
