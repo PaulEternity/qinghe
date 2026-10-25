@@ -43,6 +43,7 @@ test('云端数据库非 TLS 连接必须显式授权且仅接受 RFC1918 字面
 });
 
 test('云端拒绝非本站 Host、跨站和缺失 Origin 的写请求；健康检查不暴露数据', async t => {
+  const warnings=[];t.mock.method(console,'warn',message=>warnings.push(JSON.parse(message)));
   const deployment = deploymentConfig({ APP_MODE: 'cloud', PUBLIC_ORIGIN: 'https://qinghe.onrender.com' });
   const server = createApp({ deployment });
   server.listen(0, '127.0.0.1');await once(server, 'listening');
@@ -50,6 +51,9 @@ test('云端拒绝非本站 Host、跨站和缺失 Origin 的写请求；健康�
   const base = `http://127.0.0.1:${server.address().port}`;
   assert.equal((await fetch(base + '/healthz')).status, 200);
   assert.equal((await fetch(base + '/api/status')).status, 403);
+  assert.equal(warnings[0].event,'qinghe_host_rejected');
+  assert.equal(warnings[0].expectedHost,deployment.host);
+  assert.equal(warnings[0].receivedHost,new URL(base).host);
   const response = await fetch(base + '/api/status', { headers: { Host: deployment.host } });
   assert.equal(response.status, 200);assert.equal(response.headers.get('strict-transport-security'), 'max-age=31536000');
   for (const origin of [undefined,'https://evil.example']) {
