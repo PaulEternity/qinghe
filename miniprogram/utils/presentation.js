@@ -1,5 +1,6 @@
 /** 盘面展示适配：只格式化既有事实，不重排盘、不重新抽牌。 */
 const {baseUrl}=require('./api');
+const {cloud}=require('../config');
 /** 完整导出保留原盘、已完成回答与追问，不包含图片和系统配置。 */
 function exportText(note){return [note.record.title,note.record.question,note.created,JSON.stringify(note.record.facts,null,2),note.answer,...note.history.map(message=>(message.role==='user'?'我：':'清和：')+message.content)].join('\n\n');}
 /** 逐个形成可读区块，完整规则仍可展开核对。 */
@@ -13,7 +14,7 @@ function present(note,gloss={}){
   if(facts.ziwei){const z=facts.ziwei;blocks.push({title:'紫微命盘',text:z.solarDate+' · '+z.lunarDate+'\n'+z.fiveElementsClass+' · 命主 '+z.soul+' · 身主 '+z.body+'\n阶段日期：'+z.stage.focusDate+'\n流年：'+z.stage.yearly.heavenlyStem+z.stage.yearly.earthlyBranch+'\n四化（禄权科忌）：'+z.stage.yearly.mutagen.join('、')});palaces=z.palaces.map(p=>({...p,stars:[...p.majorStars,...p.minorStars,...p.adjectiveStars].map(s=>s.name+(s.brightness?'（'+s.brightness+'）':'')+(s.mutagen?'化'+s.mutagen:'')).join('、')||'无主星'}));}
   if(facts.surname)blocks.push({title:'姓氏',text:facts.surname});
   if(facts.note)blocks.push({title:'观察边界',text:facts.note});
-  const cards=(facts.cards||[]).map((card,index)=>{const open=Boolean(note.answer)||(note.revealed||[]).includes(index),entry=gloss.tarot&&gloss.tarot[card.name];return {...card,index,open,image:baseUrl+'/assets/tarot/rws/'+card.id+'.jpg',gloss:open&&entry?entry[card.orientation==='逆位'?'逆':'正']:''};});
+  const cards=(facts.cards||[]).map((card,index)=>{const open=Boolean(note.answer)||(note.revealed||[]).includes(index),entry=gloss.tarot&&gloss.tarot[card.name];return {...card,index,open,image:cloud?'':baseUrl+'/assets/tarot/rws/'+card.id+'.jpg',gloss:open&&entry?entry[card.orientation==='逆位'?'逆':'正']:''};});
   return {blocks:blocks.map((block,key)=>({...block,key})),historyView:note.history.map((message,key)=>({...message,key})),lines,palaces,cards,allRevealed:cards.every(card=>card.open),rawFacts:JSON.stringify(facts,null,2)};
 }
 /** 导出使用系统分享，旧客户端缺少文件分享能力时保留复制文本入口。 */

@@ -1,9 +1,33 @@
 /** 小程序网络边界：Bearer 身份与 AI 令牌分开，服务端决定角色和数据归属。 */
-const { baseUrl } = require('../config');
+const { baseUrl, cloud } = require('../config');
 const { SSEDecoder } = require('./sse');
 const SESSION_KEY = 'qinghe.session:' + baseUrl;
 let aiToken = '', verification = null, streamVersion = 0;
 const tasks = new Set();
+let cloudReady = false;
+/** 云托管通道不依赖 request 合法域名，失败时不回退到公网或旧后端。 */
+function container(path, options) {
+  if(!wx.cloud || typeof wx.cloud.callContainer !== 'function')throw new Error('请升级微信后使用清和云服务');
+  if(!cloudReady){wx.cloud.init();cloudReady=true;}
+  return wx.cloud.callContainer({...options,config:{env:cloud.env},path,header:{...options.header,'X-WX-SERVICE':cloud.service}});
+}
+/** 公共牌图经云托管读取为临时本地文件，避免 image 绕回公网域名。 */
+const cardImages = new Map();
+function cardImage(id) {
+  if(!/^rws-(?:[0-9]|[1-6][0-9]|7[0-7])$/.test(id))return Promise.reject(new Error('牌图无效'));
+  const path='/assets/tarot/rws/'+id+'.jpg';
+  if(!cloud)return Promise.resolve(baseUrl+path);
+  if(cardImages.has(id))return cardImages.get(id);
+  const pending=new Promise((resolve,reject)=>container(path,{method:'GET',responseType:'arraybuffer',timeout:95000,header:{},
+    success:response=>{
+      if(response.statusCode!==200)return reject(new Error('牌图加载失败'));
+      const filePath=wx.env.USER_DATA_PATH+'/qinghe-'+id+'.jpg';
+      wx.getFileSystemManager().writeFile({filePath,data:response.data,success:()=>resolve(filePath),fail:()=>reject(new Error('牌图缓存失败'))});
+    },fail:()=>reject(new Error('牌图连接失败'))}));
+  cardImages.set(id,pending);
+  pending.catch(()=>cardImages.delete(id));
+  return pending;
+}
 /** 仅保存应用会话，不保存微信 session_key、AppSecret 或 AI 密钥。 */
 function session() { return wx.getStorageSync(SESSION_KEY) || null; }
 /** 切换身份时清除旧 AI 授权与页面共享缓存。 */
@@ -22,7 +46,8 @@ function headers(stream) {
 }
 /** 微信请求的 HTTP 错误和网络错误统一变成可显示的异常。 */
 function send(path,input) {
-  return new Promise((resolve,reject)=>wx.request({url:baseUrl+path,method:input===undefined?'GET':'POST',data:input,header:headers(false),timeout:95000,
+  return new Promise((resolve,reject)=>{
+    const options={method:input===undefined?'GET':'POST',data:input,header:headers(false),timeout:95000,
     success:resolve,fail:error=>{
       const detail=error?.errMsg||'';
       console.error('清和接口连接失败',{url:baseUrl+path,errMsg:detail});
@@ -31,7 +56,9 @@ function send(path,input) {
       else if(/timeout|timed out/i.test(detail))message='清和服务响应超时，请稍后重试';
       else if(/ssl|tls|certificate|cert\b/i.test(detail))message='清和服务安全连接失败，请联系维护者检查证书';
       reject(new Error(message));
-    }}));
+    }};
+    if(cloud)container(path,options);else wx.request({...options,url:baseUrl+path});
+  });
 }
 /** 访问码验证只在用户主动调用 AI 时弹出，不自动记住访问码。 */
 async function verify() {
@@ -66,6 +93,13 @@ async function login() {
 }
 /** 原生分块请求解析 SSE；页面卸载可通过 abortStreams 主动取消。 */
 function streamOnce(path,input,onDelta) {
+  // shortcut: callContainer 无原生分块/中止接口，云端用完整 JSON，离页仅取消本机等待。
+  if(cloud)return new Promise((resolve,reject)=>{
+    let cancelled=false;
+    const task={abort(){cancelled=true;tasks.delete(task);reject(new Error('页面已离开，请刷新札记确认生成结果'));}};
+    tasks.add(task);
+    send(path,input).then(response=>{if(!cancelled)resolve(response);},error=>{if(!cancelled)reject(error);}).finally(()=>tasks.delete(task));
+  });
   return new Promise((resolve,reject)=>{
     const decoder=new SSEDecoder(onDelta);let chunked=false,failed=false,task;
     /** 异常只结算一次，并主动断开 HTTP 请求通知服务端取消。 */
@@ -113,4 +147,4 @@ async function stream(path,input,onDelta,retry=true,version=streamVersion) {
 function abortStreams(){streamVersion++;for(const task of tasks)task.abort();tasks.clear();}
 /** 页面统一显示简短错误，长内容保留在页面的 error 字段。 */
 function showError(page,error){page.setData({error:error.message||'操作失败'});}
-module.exports={api,login,session,saveSession,stream,abortStreams,showError,baseUrl};
+module.exports={api,login,session,saveSession,stream,abortStreams,showError,baseUrl,cardImage};

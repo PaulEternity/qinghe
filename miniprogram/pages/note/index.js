@@ -1,5 +1,5 @@
 /** 结果页：翻牌、完整事实、流式解读、原盘追问、复制和导出。 */
-const {api,stream,abortStreams,session,showError}=require('../../utils/api');
+const {api,stream,abortStreams,session,showError,cardImage}=require('../../utils/api');
 const {present,exportText,exportNotes}=require('../../utils/presentation');
 Page({
   data:{note:null,blocks:[],cards:[],lines:[],palaces:[],allRevealed:false,busy:false,error:'',partial:'',question:'',showFacts:false,rawFacts:'',needsPhoto:false},
@@ -12,7 +12,7 @@ Page({
   /** 私人照片不跨页面生命周期保留。 */
   onUnload(){this.visible=false;abortStreams();this.image=null;},
   /** 展示层不改动原始记录，所有用户状态以服务器返回为准。 */
-  display(note){this.setData({note,...present(note,getApp().globalData.gloss||{}),needsPhoto:note.record.tool==='palm'&&!note.answer&&!this.image});},
+  display(note){const view=present(note,getApp().globalData.gloss||{}),version=this.imageVersion=(this.imageVersion||0)+1;this.setData({note,...view,needsPhoto:note.record.tool==='palm'&&!note.answer&&!this.image});for(const card of view.cards)if(card.open&&!card.image)cardImage(card.id).then(path=>{if(this.visible&&this.imageVersion===version)this.setData({['cards['+card.index+'].image']:path});}).catch(error=>{if(this.visible&&this.imageVersion===version)showError(this,error);});},
   /** 翻牌先保存服务器状态再显示，失败时不假装完成。 */
   async flip(event){if(this.data.busy)return;const index=Number(event.currentTarget.dataset.index),indices=new Set(this.data.note.revealed||[]);if(index>=0)indices.add(index);else for(let i=0;i<this.data.cards.length;i++)indices.add(i);this.setData({busy:true,error:''});try{const result=await api('/api/notes/reveal',{id:this.id,revealed:Array.from(indices)});if(this.visible)this.display(result.note);}catch(error){if(this.visible)showError(this,error);}finally{if(this.visible)this.setData({busy:false});}},
   /** 手相札记不保存照片，重新打开未解读记录时需再次选择。 */

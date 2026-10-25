@@ -10,10 +10,62 @@ import {prepare,tools} from './engine.mjs';
 function load(file,extras={},cache=new Map()){
   const path=resolve(file);if(cache.has(path))return cache.get(path).exports;
   const module={exports:{}};cache.set(path,module);
-  const context={module,exports:module.exports,require:name=>load(resolve(dirname(path),name+'.js'),extras,cache),console,Uint8Array,ArrayBuffer,...extras};
+  const context={module,exports:module.exports,require:name=>name==='../config'&&!extras.cloudBackend?{baseUrl:'http://127.0.0.1:3187',cloud:null}:load(resolve(dirname(path),name+'.js'),extras,cache),console,Uint8Array,ArrayBuffer,...extras};
   runInNewContext(readFileSync(path,'utf8'),context,{filename:path});return module.exports;
 }
 const clean=value=>JSON.parse(JSON.stringify(value));
+
+test('云托管首页与微信登录固定环境和服务，保留 Bearer，不调用公网 request',async()=>{
+  let initialized=0,saved;const calls=[];
+  const wx={cloud:{init(){initialized++;},callContainer(options){calls.push(options);setImmediate(()=>options.success({statusCode:200,data:options.path==='/api/wechat/login'?{token:'session-token'}:{tools:{}}}));}},
+    getStorageSync:()=>saved, setStorageSync:(key,value)=>{saved=value;},login:options=>options.success({code:'login-code'}),
+    request:()=>assert.fail('云托管不得使用公网请求')};
+  const client=load('miniprogram/utils/api.js',{wx,cloudBackend:true,getApp:()=>({globalData:{}})});
+  await client.api('/api/status');await client.login();await client.api('/api/notes');
+  assert.equal(initialized,1);assert.equal(saved.token,'session-token');
+  assert.equal(calls[1].data.code,'login-code');assert.equal(calls[2].header.Authorization,'Bearer session-token');
+  for(const call of calls){assert.equal(call.config.env,'prod-d4goavctzfcc4e777');assert.equal(call.header['X-WX-SERVICE'],'express-xhac');assert.equal(call.timeout,95000);assert.equal(call.url,undefined);}
+});
+
+test('云托管 401 验证访问码后仅重试一次，生成结果为完整 JSON',async()=>{
+  let attempts=0;
+  const wx={getStorageSync:()=>({token:'session-token'}),showModal:options=>options.success({confirm:true,content:'001234'}),
+    cloud:{init(){},callContainer(options){setImmediate(()=>{
+      let data,statusCode=200;
+      if(options.path==='/api/access/status')data={expiresAt:Date.now()+60000};
+      else if(options.path==='/api/access/verify')data={aiToken:'verified-token'};
+      else if(++attempts===1){statusCode=401;data={code:'AI_ACCESS_REQUIRED'};}
+      else{assert.equal(options.header['X-Qinghe-AI'],'verified-token');assert.equal(options.header.Accept,undefined);data={answer:'完整回答',note:{id:'note'}};}
+      options.success({statusCode,data});
+    });}}};
+  const client=load('miniprogram/utils/api.js',{wx,cloudBackend:true});
+  assert.equal((await client.stream('/api/interpret',{},()=>assert.fail('云托管 JSON 不分块'))).answer,'完整回答');
+  assert.equal(attempts,2);
+});
+
+test('云托管生成期间离页立即结束本机等待，迟到回答不会重试或写回',async()=>{
+  let pendingRequest,ready;const started=new Promise(resolve=>{ready=resolve;});let attempts=0;
+  const wx={getStorageSync:()=>({token:'session-token'}),cloud:{init(){},callContainer(options){setImmediate(()=>{
+    if(options.path==='/api/access/status')return options.success({statusCode:200,data:{expiresAt:Date.now()+60000}});
+    attempts++;pendingRequest=options;ready();
+  });}}};
+  const client=load('miniprogram/utils/api.js',{wx,cloudBackend:true});
+  const pending=client.stream('/api/interpret',{},()=>{});const rejected=assert.rejects(pending,/页面已离开/);
+  await started;client.abortStreams();await rejected;
+  pendingRequest.success({statusCode:401,data:{code:'AI_ACCESS_REQUIRED'}});
+  await new Promise(resolve=>setImmediate(resolve));assert.equal(attempts,1);
+});
+
+test('云托管图片经二进制通道写入本地缓存，失败可重试，非法 ID 不发请求',async()=>{
+  let requests=0;const bytes=new Uint8Array([255,216,255]).buffer;
+  const wx={env:{USER_DATA_PATH:'/cache'},getFileSystemManager:()=>({writeFile(options){assert.equal(options.data,bytes);options.success();}}),
+    cloud:{init(){},callContainer(options){requests++;assert.equal(options.responseType,'arraybuffer');assert.equal(options.header.Authorization,undefined);setImmediate(()=>options.success({statusCode:requests===1?503:200,data:bytes}));}}};
+  const client=load('miniprogram/utils/api.js',{wx,cloudBackend:true});
+  await assert.rejects(client.cardImage('../secret'),/牌图无效/);assert.equal(requests,0);
+  await assert.rejects(client.cardImage('rws-0'),/牌图加载失败/);
+  assert.equal(await client.cardImage('rws-0'),'/cache/qinghe-rws-0.jpg');
+  await client.cardImage('rws-0');assert.equal(requests,2);
+});
 
 test('网络失败区分域名、超时和证书，控制台保留原始原因且不记录登录凭证',async()=>{
   for(const [detail,expected] of [
@@ -94,14 +146,15 @@ test('输入访问码期间离开结果页，不会在验证成功后偷偷重�
   assert.match((await pending).message,/页面已离开/);assert.equal(calls,0);
 });
 
-test('仅开发版模拟器使用本机后端，手机和体验/正式版保留 HTTPS',()=>{
+test('模拟器、手机和体验/正式版默认均使用同一云托管服务',()=>{
   const configured=(envVersion,platform)=>load('miniprogram/config.js',{wx:{
     getAccountInfoSync:()=>({miniProgram:{envVersion}}),
     getSystemInfoSync:()=>({platform})
-  }}).baseUrl;
-  assert.equal(configured('develop','devtools'),'http://127.0.0.1:3187');
-  for(const [env,platform] of [['develop','ios'],['develop','android'],['trial','devtools'],['release','devtools']]){
-    assert.equal(configured(env,platform),'https://qinghe-u3gv.onrender.com');
+  }});
+  for(const [env,platform] of [['develop','devtools'],['develop','ios'],['develop','android'],['trial','devtools'],['release','devtools']]){
+    assert.equal(configured(env,platform).baseUrl,'https://express-xhac-335091-7-1516597015.sh.run.tcloudbase.com');
+    assert.equal(configured(env,platform).cloud.env,'prod-d4goavctzfcc4e777');
+    assert.equal(configured(env,platform).cloud.service,'express-xhac');
   }
 });
 
