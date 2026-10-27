@@ -32,7 +32,7 @@ test('星座输入严格校验；新记录无需出生时间且停用 Offer 新�
   assert.equal(record.title,'星座匹配');assert.equal(record.facts.zodiac.personA.element,'水象');
   assert.equal(record.facts.birth,undefined);assert.equal(record.facts.zodiac.score,undefined);
   assert.match(record.facts.zodiac.rules.limit,/未计算月亮、上升/);
-  assert.equal(Object.values(tools).filter(tool=>!tool.legacy).length,9);
+  assert.equal(Object.values(tools).filter(tool=>!tool.legacy).length,10);
   assert.equal(tools.offer.legacy,true);
   assert.throws(()=>prepare({tool:'offer',question:'旧功能',optionA:'A',optionB:'B'}));
   // 返回快照不能被客户端/调用方修改后污染下一次匹配。

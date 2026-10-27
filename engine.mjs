@@ -2,8 +2,9 @@
 import lunar from 'lunar-javascript';
 import { randomUUID } from 'node:crypto';
 import { drawTarot } from './tarot.ts';
-import { castLines, calculateLiuyao } from './liuyao.ts';
+import { castLines, calculateLiuyao, analyzeLiuyao } from './liuyao.ts';
 import { calculateZiwei } from './ziwei.ts';
+import { calculateFortune } from './fortune.ts';
 import { correctSolarTime } from './solar-time.ts';
 import { matchZodiac, ZODIAC_SIGNS, ZODIAC_ELEMENTS } from './zodiac.ts';
 
@@ -11,6 +12,7 @@ export const tools = {
   bazi: { name: '生辰八字', icon: '乾', desc: '四柱排盘，读懂人生的节律', birth: true },
   liuyao: { name: '六爻问事', icon: '易', desc: '一事一问，看清当下的选择' },
   ziwei: { name: '紫微斗数', icon: '星', desc: '十二宫位，展开命盘全景', birth: true },
+  fortune: { name: '流年流月', icon: '运', desc: '大运流年，看清这一程的节奏', birth: true },
   tarot: { name: '塔罗占卜', icon: '契', desc: '选择牌阵，照见心绪与行动' },
   match: { name: '双人合盘', icon: '合', desc: '从差异出发，理解彼此', birth: true },
   zodiac: { name: '星座匹配', icon: '星', desc: '从星座与四元素，探索两个人的相处方式', signs: ZODIAC_SIGNS, elements: ZODIAC_ELEMENTS },
@@ -52,11 +54,15 @@ export function prepare(input) {
   let facts={};
   const correction={enabled:input.solarCorrection??false,longitude:input.longitude};
   if (tool.birth) facts.birth=bazi(input.birth,correction);
-  if (['match','ziwei'].includes(input.tool) && !['男','女'].includes(input.gender)) throw new Error('请选择命盘性别');
+  if (['match','ziwei','fortune'].includes(input.tool) && !['男','女'].includes(input.gender)) throw new Error('请选择命盘性别');
   if (input.tool==='match') facts.partner=bazi(input.partnerBirth,{enabled:input.partnerSolarCorrection??false,longitude:input.partnerLongitude});
   if (input.tool==='ziwei') {
     if(input.focusDate)parseBirth(input.focusDate+'T12:00');
     facts.ziwei=calculateZiwei(parseBirth(facts.birth.timeCorrection.corrected),input.gender,{dayDivide:input.dayDivide,fixLeap:input.fixLeap,algorithm:input.ziweiAlgorithm,focusDate:input.focusDate});
+  }
+  if (input.tool==='fortune') {
+    if(input.focusDate)parseBirth(input.focusDate+'T12:00');
+    facts.fortune=calculateFortune(parseBirth(facts.birth.timeCorrection.corrected),input.gender,{dayDivide:input.dayDivide,fixLeap:input.fixLeap,algorithm:input.ziweiAlgorithm,focusDate:input.focusDate});
   }
   if (input.tool==='tarot') {
     const tarot=drawTarot(input.spread,input.spreadMode);facts.cards=tarot.cards;facts.tarotRules=tarot.rules;
@@ -65,7 +71,8 @@ export function prepare(input) {
     const values=castLines(input.castMode,input.lineValues);
     const timeCorrection=correctSolarTime(input.castTime||new Date(Date.now()+8*3600000).toISOString().slice(0,16),correction.enabled,correction.longitude);
     const calendar=bazi(timeCorrection.corrected);
-    facts={timeCorrection,lines:values.map((value,i)=>({position:i+1,value,yang:value%2===1,moving:[6,9].includes(value)})),method:'三钱法，初爻至上爻。6 老阴、7 少阳、8 少阴、9 老阳。纳甲/六亲六神/世应/旬空由固定规则引擎生成；不自动确定用神或应期。',castMode:input.castMode||'auto',liuyao:calculateLiuyao(values,calendar.pillars.map(p=>p.ganzhi))};
+    const liuyao=calculateLiuyao(values,calendar.pillars.map(p=>p.ganzhi));
+    facts={timeCorrection,lines:values.map((value,i)=>({position:i+1,value,yang:value%2===1,moving:[6,9].includes(value)})),method:'三钱法，初爻至上爻。6 老阴、7 少阳、8 少阴、9 老阳。纳甲/六亲六神/世应/旬空由固定规则引擎生成；用神与应期为按问题关键词与旺衰空破动变的传统参考。',castMode:input.castMode||'auto',liuyao,analysis:analyzeLiuyao(liuyao,question)};
   }
   if (input.tool==='zodiac') facts.zodiac=matchZodiac(input.signA,input.signB);
   if (input.tool==='naming') facts.surname=field(input.surname,'姓氏',10);

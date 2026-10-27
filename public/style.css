@@ -6,6 +6,7 @@
 .solar-control{margin:0 0 20px;border:1px solid var(--line);padding:14px;font-size:12px;min-width:0}.solar-control legend{color:var(--muted);padding:0 5px}.solar-toggle{display:flex;align-items:center;gap:8px}.solar-toggle input{width:auto}.solar-control summary{cursor:pointer;margin:12px 0;color:var(--ink)}.solar-options{margin-top:14px}.solar-options[hidden]{display:none}.solar-preview{overflow-wrap:anywhere}
 /* 多牌阵与六爻表支持窄屏，不挤压原来的结果面板。 */
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr))}.tarot-card{color:var(--ink);cursor:pointer}.chart-scroll{overflow-x:auto}.chart-table{width:100%;border-collapse:collapse;white-space:nowrap;font-size:12px}.chart-table th,.chart-table td{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left}#manual-lines{border:1px solid var(--line);margin:0 0 20px;padding:12px}#manual-lines label{display:block;margin:7px 0}#manual-lines[hidden],#mode-group[hidden]{display:none}.rule-options{margin:0 0 20px}.rule-options summary{cursor:pointer}.rule-options label{display:block;margin:12px 0}.pillar small{overflow-wrap:anywhere}
+.pillar.focus{background:#f0e7d3;box-shadow:inset 0 0 0 1px var(--accent)}
 
 /* 双面卡牌使用独立旋转层；投影与掠光只在用户翻牌时播放。 */
 .cards{gap:16px;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));align-items:start;padding:12px 0 6px}

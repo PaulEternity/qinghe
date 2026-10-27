@@ -14,18 +14,29 @@ test('官方示例日期的四柱与无效日期边界',()=>{
   assert.doesNotThrow(()=>parseBirth('2024-02-29T23:59'));
 });
 // 覆盖十二宫和全部功能必要输入，防止只完成首页入口。
-test('九个入口能够构建上下文，缺失输入明确失败',()=>{
+test('十个入口能够构建上下文，缺失输入明确失败',()=>{
   const input={birth:'1996-08-18T10:30',partnerBirth:'1995-06-11T12:30',gender:'女',question:'我该如何梳理下一步',signA:'aries',signB:'libra',surname:'张',image:'data:image/png;base64,aGVsbG8='};
-  for(const tool of ['bazi','ziwei','tarot','liuyao','dream','zodiac','match','naming','palm']){
+  for(const tool of ['bazi','ziwei','tarot','liuyao','dream','zodiac','match','naming','palm','fortune']){
     const r=prepare({...input,tool});assert.equal(r.tool,tool);
     if(tool==='ziwei'){assert.equal(r.facts.ziwei.palaces.length,12);assert.ok(r.facts.ziwei.palaces.some(p=>p.majorStars.length));}
     if(tool==='match')assert.equal(r.facts.partner.pillars.length,4);
     if(tool==='tarot')assert.equal(new Set(r.facts.cards.map(c=>c.name)).size,3);
-    if(tool==='liuyao')assert.equal(r.facts.lines.length,6);
+    if(tool==='liuyao'){assert.equal(r.facts.lines.length,6);assert.ok(r.facts.analysis);}
+    if(tool==='fortune'){assert.ok(r.facts.fortune.bazi.daYun.length);assert.equal(r.facts.fortune.bazi.liuYue.length,12);assert.ok(r.facts.fortune.ziwei.yearly);}
   }
   assert.throws(()=>prepare({tool:'zodiac',signA:'aries',question:'test'}));
   assert.throws(()=>prepare({tool:'offer',birth:input.birth,question:'test'}));
   assert.throws(()=>prepare({tool:'palm',question:'test',image:'javascript:alert(1)'}));
+});
+// 用神按问题关键词定位六亲并回落到世爻，旺衰与应期给出传统参考而非确定性结论。
+test('六爻用神定位与应期参考按问题关键词生成',()=>{
+  const base={tool:'liuyao',castMode:'manual',lineValues:[7,7,7,7,7,7],castTime:'1986-05-29T00:00'};
+  assert.equal(prepare({...base,question:'我什么时候能找到工作'}).facts.analysis.category.label,'事业仕途');
+  assert.equal(prepare({...base,question:'这段感情还有没有结果'}).facts.analysis.category.label,'感情婚姻');
+  assert.equal(prepare({...base,question:'随便看看'}).facts.analysis.category.label,'自身');
+  const a=prepare({...base,question:'求财如何'}).facts.analysis;
+  assert.equal(a.present,true);assert.ok('strength' in a.verdict);assert.ok(Array.isArray(a.timing.suggestions));
+  assert.ok(a.tendency&&a.tendency.level&&a.tendency.text);
 });
 // 构造足够多的抽取，检查钱币和塔罗结构约束而非断言固定随机结果。
 test('随机抽取合法且三张牌不重复',()=>{
