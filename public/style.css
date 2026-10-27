@@ -58,3 +58,14 @@
 .daily-guidance{font:15px/1.9 var(--serif);color:var(--ink);margin:16px 0 10px}
 .daily-hint h3{font-size:18px;margin:0 0 4px}
 .daily-hint p{margin:0 0 12px;font-size:13px;color:var(--muted)}
+.bazi-detail{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:16px 0 4px;padding:12px 14px;background:#fcfcf8;border:1px solid var(--line);border-radius:4px;font-size:12px;line-height:1.9}
+.bazi-detail .help{width:100%;margin:0}
+.bazi-dm b,.bazi-strong b{font:19px var(--serif);letter-spacing:2px;margin:0 4px}
+.bazi-strong b{color:#8a6d3b}
+.bazi-extra{color:var(--muted)}
+.bazi-shensha{display:flex;flex-wrap:wrap;gap:6px}
+.bazi-star{padding:1px 9px;background:var(--wash);border:1px solid #e3e9dc;border-radius:20px;color:#526b59;white-space:nowrap}
+.bazi-factors{width:100%;color:var(--muted);font-size:11px;line-height:1.7}
+.pillar-shishen{color:#8a6d3b}
+.pillar-hide,.pillar-kong{margin-top:2px;display:block}
+@media(max-width:600px){.pillars{grid-template-columns:repeat(2,1fr)}}

@@ -8,7 +8,7 @@ import { TAROT_IMAGES } from './public/tarot-images.js';
 import { GLOSS } from './public/gloss.js';
 const source=fs.readFileSync(new URL('./public/app.js',import.meta.url),'utf8');
 // 提取现有纯函数所在注释段，直接测试生产代码，不依赖编译器内部 API。
-const functions=['solarSummary','glossItem','hexagramGloss','tarotGloss','zodiacHTML','liuyaoAnalysisHTML','fortuneHTML','factsHTML'].map(name=>{const start=source.indexOf('function '+name+'(');const next=source.indexOf('/**',start);return source.slice(start,next<0?source.length:next);}).join('\n');
+const functions=['solarSummary','glossItem','hexagramGloss','tarotGloss','zodiacHTML','liuyaoAnalysisHTML','fortuneHTML','pillarHTML','baziDetailHTML','factsHTML'].map(name=>{const start=source.indexOf('function '+name+'(');const next=source.indexOf('/**',start);return source.slice(start,next<0?source.length:next);}).join('\n');
 const escapeDeclaration=source.split('\n').find(line=>line.startsWith('const esc='));
 /** 用真实函数和最少上下文执行模板，不复制生产实现。 */
 function render(facts,{revealed=[],answer=''}={}){const context=vm.createContext({GLOSS,TAROT_IMAGES,current:{revealed,answer},record:{facts},output:null});vm.runInContext(escapeDeclaration+'\n'+functions+'\noutput=factsHTML(record);',context);return context.output;}

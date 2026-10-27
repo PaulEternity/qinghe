@@ -7,6 +7,7 @@ import { calculateZiwei } from './ziwei.ts';
 import { calculateFortune } from './fortune.ts';
 import { correctSolarTime } from './solar-time.ts';
 import { matchZodiac, ZODIAC_SIGNS, ZODIAC_ELEMENTS } from './zodiac.ts';
+import { calculateBaziDetail } from './bazi-detail.ts';
 
 export const tools = {
   bazi: { name: '生辰八字', icon: '乾', desc: '四柱排盘，读懂人生的节律', birth: true },
@@ -32,12 +33,28 @@ export function parseBirth(value) {
   return a;
 }
 
-/** 调用历法库生成四柱，固定晚子时换日规则并明确展示计算口径。 */
+/** 调用历法库生成四柱，补全十神/藏干/长生/旬空/日主/旺衰/神煞，固定晚子时换日规则并明确展示计算口径。 */
 export function bazi(birth, options={}) {
   const timeCorrection=correctSolarTime(birth,options.enabled??false,options.longitude);
   const a=parseBirth(timeCorrection.corrected), l=lunar.Solar.fromYmdHms(...a,0).getLunar(), e=l.getEightChar();
   e.setSect(2);
-  return { timeCorrection, calendar:`公历 · ${timeCorrection.enabled?'真太阳时近似校正（分钟取整）':'北京时间 UTC+8，未校正'} · 子初不换日（sect 2）`, lunar:l.toString(), pillars:['Year','Month','Day','Time'].map((k,i)=>({name:['年柱','月柱','日柱','时柱'][i],ganzhi:e['get'+k](),wuxing:e['get'+k+'WuXing'](),nayin:e['get'+k+'NaYin']()})) };
+  const keys=['Year','Month','Day','Time'], names=['年柱','月柱','日柱','时柱'];
+  // 保留既有干支/五行/纳音字段不变，新增十神、藏干、十二长生、旬空。
+  const pillars=keys.map((k,i)=>({
+    name:names[i],
+    ganzhi:e['get'+k](),
+    gan:e['get'+k+'Gan'](),
+    zhi:e['get'+k+'Zhi'](),
+    wuxing:e['get'+k+'WuXing'](),
+    nayin:e['get'+k+'NaYin'](),
+    shishen:e['get'+k+'ShiShenGan'](),
+    hideGan:e['get'+k+'HideGan']().map((g,idx)=>({gan:g,shishen:e['get'+k+'ShiShenZhi']()[idx]})),
+    dishi:e['get'+k+'DiShi'](),
+    xunKong:e['get'+k+'XunKong'](),
+  }));
+  // 日主旺衰与神煞为纯规则计算，传入干支与藏干即可，不依赖历法库内部结构。
+  const detail=calculateBaziDetail({dayGan:e.getDayGan(),pillars:pillars.map(p=>({gan:p.gan,zhi:p.zhi,hideGan:p.hideGan.map(h=>h.gan)}))});
+  return { timeCorrection, calendar:`公历 · ${timeCorrection.enabled?'真太阳时近似校正（分钟取整）':'北京时间 UTC+8，未校正'} · 子初不换日（sect 2）`, lunar:l.toString(), pillars, ...detail, taiYuan:e.getTaiYuan(), mingGong:e.getMingGong(), shenGong:e.getShenGong() };
 }
 
 /** 校验文本长度，避免误将对象或过长请求发送至模型。 */
