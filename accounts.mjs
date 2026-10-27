@@ -23,8 +23,15 @@ export class UserAccounts {
       username VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE,
       password_salt CHAR(32) CHARACTER SET ascii NOT NULL,
       password_hash CHAR(64) CHARACTER SET ascii NOT NULL,
+      birthday DATE NULL,
+      gender VARCHAR(2) NULL,
       created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
+    // 兼容早期部署：老库缺生日/性别列时按需补齐，不影响已存在的数据。
+    const [existing] = await this.pool.query('SHOW COLUMNS FROM users');
+    const columns = new Set(existing.map(c => c.Field));
+    if (!columns.has('birthday')) await this.pool.query('ALTER TABLE users ADD COLUMN birthday DATE NULL AFTER password_hash');
+    if (!columns.has('gender')) await this.pool.query('ALTER TABLE users ADD COLUMN gender VARCHAR(2) NULL AFTER birthday');
     // Existing deployments do not need REFERENCES privilege after the one-time migration.
     const [sessions] = await this.pool.query("SHOW TABLES LIKE 'user_sessions'");
     if (sessions.length) return;
@@ -41,8 +48,8 @@ export class UserAccounts {
     const token = tokenOf(req);
     if (!this.pool || !token || !/^[a-f0-9]{64}$/.test(token)) return null;
     const sessionKey = digest(token);
-    const [rows] = await this.pool.execute('SELECT u.id,u.username FROM users u JOIN user_sessions s ON s.user_id=u.id WHERE s.token_hash=? AND s.expires_at>?', [sessionKey, new Date(this.now())]);
-    return rows[0] ? { user: { id: rows[0].id, username: rows[0].username }, sessionKey } : null;
+    const [rows] = await this.pool.execute('SELECT u.id,u.username,DATE_FORMAT(u.birthday,\'%Y-%m-%d\') AS birthday,u.gender FROM users u JOIN user_sessions s ON s.user_id=u.id WHERE s.token_hash=? AND s.expires_at>?', [sessionKey, new Date(this.now())]);
+    return rows[0] ? { user: { id: rows[0].id, username: rows[0].username, birthday: rows[0].birthday || null, gender: rows[0].gender || null }, sessionKey } : null;
   }
 
   limited(key, maximum, window) {
@@ -98,6 +105,18 @@ export class UserAccounts {
       if (adminSession) admin.sessions.delete(adminSession.key);
       res.setHeader('Set-Cookie', [sessionCookie('qinghe_user','',0,this.secure), sessionCookie('qinghe_ai','',0,this.secure), sessionCookie('qinghe_admin','',0,this.secure)]);
       return send(200, { ok: true });
+    }
+    if (path === '/api/account/profile') {
+      if (!req.user) return send(401, { error: '请先登录用户账号' });
+      const profile = await readBody(req);
+      const birthday = profile?.birthday, gender = profile?.gender;
+      if (typeof birthday !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(birthday)) return send(400, { error: '请填写有效的出生日期' });
+      const [y, m, d] = birthday.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d || y < 1900 || y > 2100) return send(400, { error: '请填写 1900—2100 年内的有效日期' });
+      const g = gender === '男' || gender === '女' ? gender : null;
+      await this.pool.execute('UPDATE users SET birthday=?,gender=? WHERE id=?', [birthday, g, req.user.id]);
+      return send(200, { user: { ...req.user, birthday, gender: g } });
     }
     if (!['/api/account/register', '/api/account/login'].includes(path)) return send(404, { error: '用户接口不存在' });
     const input = await readBody(req), username = usernameOf(input?.username), password = input?.password;

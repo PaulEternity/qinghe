@@ -19,7 +19,8 @@ export async function accountPage(main, mode) {
     if (location.hash !== hash) return;
     showAccount(status.user, status.admin);
     if (status.user || status.admin) {
-      main.innerHTML = `<div class="page-head"><h2>我的账号</h2></div><section class="panel account-panel"><p>当前账号：<strong id="current-username"></strong></p><p>${status.admin ? '管理员身份已验证，可进入管理页面修改 AI 访问码。' : '札记仅属于你的账号。使用 AI 时仍需验证管理员提供的六位访问码。'}</p><a class="secondary" href="${status.admin ? '#admin' : '#history'}">${status.admin ? '进入管理页面' : '查看我的札记'}</a><button class="quiet" id="user-logout">退出登录</button><p role="status"></p></section>`;
+      const profile = status.user ? `<section class="panel account-panel"><h3>每日运势</h3><p class="help">补充出生日期（性别可选），即可在首页看到你的专属每日运势。出生日期只用于本地排盘，不参与其它测算。</p><form id="profile-form"><label for="profile-birthday">出生日期（公历）</label><input id="profile-birthday" name="birthday" type="date" min="1900-01-01" max="2100-12-31" value="${status.user.birthday || ''}" required><label for="profile-gender">性别（可选）</label><select id="profile-gender" name="gender"><option value="">不填</option><option value="男"${status.user.gender === '男' ? ' selected' : ''}>男</option><option value="女"${status.user.gender === '女' ? ' selected' : ''}>女</option></select><div class="form-actions"><button class="primary">保存</button></div><p role="status"></p></form></section>` : '';
+      main.innerHTML = `<div class="page-head"><h2>我的账号</h2></div><section class="panel account-panel"><p>当前账号：<strong id="current-username"></strong></p><p>${status.admin ? '管理员身份已验证，可进入管理页面修改 AI 访问码。' : '札记仅属于你的账号。使用 AI 时仍需验证管理员提供的六位访问码。'}</p><a class="secondary" href="${status.admin ? '#admin' : '#history'}">${status.admin ? '进入管理页面' : '查看我的札记'}</a><button class="quiet" id="user-logout">退出登录</button><p role="status"></p></section>${profile}`;
       document.querySelector('#current-username').textContent = status.admin ? 'admin' : status.user.username;
       document.querySelector('#user-logout').onclick = async event => {
         event.currentTarget.disabled = true;
@@ -28,6 +29,19 @@ export async function accountPage(main, mode) {
           if (!result.ok) throw new Error('退出失败，请重试');
           accountChanged();
         } catch (error) { main.querySelector('[role=status]').textContent = error.message; event.target.disabled = false; }
+      };
+      const profileForm = document.querySelector('#profile-form');
+      if (profileForm) profileForm.onsubmit = async event => {
+        event.preventDefault();
+        const input = Object.fromEntries(new FormData(profileForm)), output = profileForm.querySelector('[role=status]'), button = profileForm.querySelector('button');
+        button.disabled = true; output.textContent = '';
+        try {
+          const result = await fetch('/api/account/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+          const data = await result.json();
+          if (!result.ok) throw new Error(data.error || '保存失败');
+          output.textContent = '已保存，返回首页即可查看每日运势。';
+        } catch (error) { output.textContent = error.message; }
+        finally { button.disabled = false; }
       };
       return;
     }

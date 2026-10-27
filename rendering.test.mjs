@@ -48,7 +48,7 @@ test('首页替换 Offer 入口，星座表单提供两份完整选项与四元�
  const form={querySelectorAll:()=>[],addEventListener(){}};
  const document={querySelector:selector=>({'#home-template':{content:{cloneNode:()=>({})}},'#tool-grid':grid,'#reading-form':form})[selector]};
  const templates=['home','reading','bindSolarControls'].map(name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('/**',start));}).join('\n');
- const context=vm.createContext({main,document,tools,current:null,pendingImage:null});
+ const context=vm.createContext({main,document,tools,current:null,pendingImage:null,renderDailyFortune:()=>{}});
  vm.runInContext(escapeDeclaration+'\n'+functions+'\n'+templates+'\nhome();reading("zodiac");',context);
  assert.match(grid.innerHTML,/#reading\/zodiac/);assert.ok(!grid.innerHTML.includes('#reading/offer'));
  for(const id of ['signA','signB'])assert.match(main.innerHTML,new RegExp('id="'+id+'"'));

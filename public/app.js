@@ -5,7 +5,7 @@ import { accessFetch, adminPage } from './access.js';
 import { accountPage, showAccount } from './account.js';
 const main=document.querySelector('#main');
 const STORAGE='qinghe.readings.v1';
-let tools={},current=null,records=[],busy=false,routeVersion=0,pendingImage=null,activeController=null;
+let tools={},current=null,records=[],busy=false,routeVersion=0,pendingImage=null,activeController=null,accountUser=null;
 /** 将外部文本转成安全 HTML，AI 回复始终用 textContent 展示。 */
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /** 从 MySQL 加载全部札记；连接失败明确报错，不使用旧缓存冒充已保存。 */
@@ -57,7 +57,22 @@ function bindCoinCast(form){
  });
 }
 /** 呈现首页与所有真实功能入口。 */
-function home(){main.replaceChildren(document.querySelector('#home-template').content.cloneNode(true));document.querySelector('#tool-grid').innerHTML=Object.entries(tools).filter(([,t])=>!t.legacy).map(([id,t])=>`<a class="tool-card" href="#reading/${id}"><span class="glyph">${esc(t.icon)}</span><div><h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p></div><span class="arrow">↗</span></a>`).join('');}
+function home(){main.replaceChildren(document.querySelector('#home-template').content.cloneNode(true));document.querySelector('#tool-grid').innerHTML=Object.entries(tools).filter(([,t])=>!t.legacy).map(([id,t])=>`<a class="tool-card" href="#reading/${id}"><span class="glyph">${esc(t.icon)}</span><div><h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p></div><span class="arrow">↗</span></a>`).join('');renderDailyFortune();}
+/** 每日运势的盘面卡片：日主、今日十神、民俗幸运项与一段非确定性提示。 */
+function dailyFortuneHTML(f){
+ return `<div class="daily-head"><span class="section-label">每日运势</span><span class="daily-date">${esc(f.lunarDate)} · ${esc(f.yearGanZhi)}年 ${esc(f.monthGanZhi)}月 ${esc(f.dayGanZhi)}日</span></div><div class="pillars"><div class="pillar"><small>你的日主</small><b>${esc(f.dayMaster)}</b><span>${esc(f.dayMasterElement)}</span></div><div class="pillar"><small>今日十神</small><b>${esc(f.relation)}</b><span>${esc(f.todayElement)}气</span></div><div class="pillar"><small>幸运色 · 数字 · 方位</small><b>${esc(f.luckyColor)}</b><span>${esc(f.luckyNumbers)} · ${esc(f.luckyDirection)}</span></div><div class="pillar"><small>可留意五行</small><b>${esc(f.dayMasterElement)}</b><span>${esc(f.favorable)}</span></div></div><p class="daily-guidance">${esc(f.guidance)}</p><p class="help">${esc(f.rules.note)}</p>`;
+}
+/** 登录后拉取每日运势并插入首页；未登录或未填生日分别给出提示与隐藏。 */
+async function renderDailyFortune(){
+ const box=document.querySelector('#daily-fortune');if(!box)return;
+ if(!accountUser){box.hidden=true;return;}
+ try{
+  const data=await api('/api/daily-fortune');
+  if(!document.querySelector('#daily-fortune')||location.hash&&location.hash!=='#home')return;
+  if(!data.configured){box.hidden=false;box.innerHTML=`<div class="daily-hint"><span class="section-label">每日运势</span><h3>给今天留一句话。</h3><p>补充出生日期，即可每天在首页看到你的专属运势。</p><a class="secondary" href="#account">去设置生日 ↗</a></div>`;return;}
+  box.hidden=false;box.innerHTML=dailyFortuneHTML(data.fortune);
+ }catch(e){if(!document.querySelector('#daily-fortune'))return;box.hidden=e.message.includes('登录')||e.message.includes('账号');}
+}
 /** 根据功能展示明确的排盘规则，先生成事实，再由用户决定是否调用模型。 */
 function reading(id){
  const t=tools[id];if(!t||t.legacy)return home();current=null;pendingImage=null;
@@ -204,7 +219,7 @@ async function history(){
 /** 哈希路由，保持本地启动无构建依赖。 */
 async function route(){activeController?.abort();activeController=null;pendingImage=null;busy=false;routeVersion++;const version=routeVersion;const [page,id]=location.hash.slice(1).split('/');if(page==='account')await accountPage(main,id);else if(page==='admin')await adminPage(main);else if(page==='history')history();else if(page==='reading')reading(id);else if(page==='note'){try{await loadRecords();if(version!==routeVersion)return;}catch(e){if(version===routeVersion)main.textContent=e.message;return;}current=records.find(r=>r.id===id);if(!current)return history();main.innerHTML='<div class="page-head"><a class="breadcrumb" href="#history">我的札记 / 解读详情</a></div><section class="panel" id="result"></section>';renderResult(document.querySelector('#result'));}else home();window.scrollTo(0,0);}
 /** 启动并提示模型连接状态；网络错误可重试，不显示假数据。 */
-async function init(){try{const status=await api('/api/status');tools=status.tools;if(status.storage!=='mysql')throw new Error('MySQL 未接入');showAccount(status.user,status.admin);if(status.user)await loadRecords();document.querySelector('#model-status').textContent=status.configured?'已检测到模型配置。实际连通性会在解读时验证。':'尚未配置模型。你仍可以使用本地排盘和抽牌。';route();}catch{main.innerHTML='<div class="empty"><h3>无法连接本地服务</h3><p>请确认 npm start 正在运行，然后刷新页面。</p></div>';}}
+async function init(){try{const status=await api('/api/status');tools=status.tools;accountUser=status.user;if(status.storage!=='mysql')throw new Error('MySQL 未接入');showAccount(status.user,status.admin);if(status.user)await loadRecords();document.querySelector('#model-status').textContent=status.configured?'已检测到模型配置。实际连通性会在解读时验证。':'尚未配置模型。你仍可以使用本地排盘和抽牌。';route();}catch{main.innerHTML='<div class="empty"><h3>无法连接本地服务</h3><p>请确认 npm start 正在运行，然后刷新页面。</p></div>';}}
 window.addEventListener('hashchange',route);document.querySelector('#settings-button').onclick=()=>document.querySelector('#settings').showModal();init();
 
 window.addEventListener('account-required',()=>{activeController?.abort();current=null;records=[];pendingImage=null;document.querySelector('#count').textContent='0';showAccount(null);location.hash='#account';});

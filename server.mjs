@@ -8,6 +8,7 @@ export { askModel } from './model.ts';
 import { prepare, tools } from './engine.mjs';
 import { MysqlStore } from './store.ts';
 import { correctSolarTime } from './solar-time.ts';
+import { calculateDailyFortune } from './daily-fortune.ts';
 import { AccessControl } from './access.mjs';
 import { UserAccounts } from './accounts.mjs';
 import { deploymentConfig } from './deployment.mjs';
@@ -53,6 +54,12 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
       if(await auth.handle(req,res,path,body,json))return;
       if(req.method==='POST'&&['/api/interpret','/api/reading','/api/followup'].includes(path)&&!auth.authorized(req))return json(res,401,{code:'AI_ACCESS_REQUIRED',error:'请先验证六位数字 AI 访问码，验证后 5 分钟内有效'});
       if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
+      // 每日运势：登录后按已存出生日期本地计算，未填生日返回未配置而不报错。
+      if(req.method==='GET'&&path==='/api/daily-fortune') {
+        if(!req.user)return json(res,401,{code:'LOGIN_REQUIRED',error:'请先登录用户账号'});
+        if(!req.user.birthday)return json(res,200,{configured:false});
+        return json(res,200,{configured:true,fortune:calculateDailyFortune(req.user.birthday,req.user.gender)});
+      }
       // 札记 API 只在持久化仓库可用时开放；测试实例可以显式不提供仓库。
       if(path.startsWith('/api/notes')) {
         if(!store)return json(res,503,{error:'请先配置 MySQL 持久化'});

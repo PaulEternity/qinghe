@@ -54,6 +54,19 @@ test('真实数据库：注册登录、两用户隔离、会话绑定及管理�
   assert.equal((await post('/api/account/login', { username: names[0], password: 'test-password-123' }, '', { Origin: 'https://evil.example' })).status, 403);
   const [stored] = await store.pool.execute('SELECT password_salt,password_hash FROM users WHERE id=?', [a.id]);
   assert.equal(stored[0].password_hash.length, 64);assert.notEqual(stored[0].password_hash, 'test-password-123');
+  // 每日运势：未填生日返回未配置，保存生日后本地计算并规范回读；未登录不可保存档案。
+  assert.deepEqual(await (await get('/api/daily-fortune', a.cookie)).json(), { configured: false });
+  assert.equal((await post('/api/account/profile', { birthday: 'bad' }, a.cookie)).status, 400);
+  assert.equal((await post('/api/account/profile', { birthday: '1800-01-01' }, a.cookie)).status, 400);
+  assert.equal((await post('/api/account/profile', { birthday: '1997-05-20', gender: '未知' }, a.cookie)).status, 200);
+  assert.equal((await (await get('/api/account/status', a.cookie)).json()).user.birthday, '1997-05-20');
+  assert.equal((await (await get('/api/account/status', a.cookie)).json()).user.gender, null);
+  const fortune = await (await get('/api/daily-fortune', a.cookie)).json();
+  assert.equal(fortune.configured, true);assert.match(fortune.fortune.dayGanZhi, /^[甲乙丙丁戊己庚辛壬癸][子丑寅卯辰巳午未申酉戌亥]$/);
+  assert.ok(fortune.fortune.relation && fortune.fortune.luckyColor && fortune.fortune.guidance && fortune.fortune.rules);
+  assert.equal((await post('/api/account/profile', { birthday: '1997-05-20', gender: '男' }, a.cookie)).status, 200);
+  assert.equal((await (await get('/api/account/status', a.cookie)).json()).user.gender, '男');
+  assert.equal((await post('/api/account/profile', { birthday: '2000-01-01' })).status, 401);
   const noteA = await (await post('/api/chart', { tool: 'tarot', question: '用户 A 私人记录', ownerId: b.id }, a.cookie)).json();
   const noteB = await (await post('/api/chart', { tool: 'tarot', question: '用户 B 私人记录' }, b.cookie)).json();
   noteIds.push(noteA.note.id,noteB.note.id);

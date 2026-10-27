@@ -50,3 +50,11 @@
 .tarot-art-label b{font-size:15px;line-height:1.4}
 .tarot-art-label .tarot-orientation{flex-shrink:0;font-size:9px;letter-spacing:1px}
 @media(max-width:600px){.tarot-front.has-artwork{padding:5px}.tarot-art-label{flex-direction:column;gap:2px;padding-top:5px}.tarot-art-label b{font-size:13px}.tarot-art-label .tarot-orientation{font-size:8px}}
+/* 每日运势卡片：登录后首页在英雄区与功能入口之间显示，复用柱签布局。 */
+#daily-fortune{display:grid;gap:4px;margin:0 0 26px;padding:22px 24px;background:#fcfcf8;border:1px solid var(--line);border-radius:6px}
+#daily-fortune[hidden]{display:none}
+.daily-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.daily-date{font:15px var(--serif);color:var(--muted);letter-spacing:1px}
+.daily-guidance{font:15px/1.9 var(--serif);color:var(--ink);margin:16px 0 10px}
+.daily-hint h3{font-size:18px;margin:0 0 4px}
+.daily-hint p{margin:0 0 12px;font-size:13px;color:var(--muted)}
