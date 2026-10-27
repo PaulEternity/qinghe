@@ -45,9 +45,9 @@ test('星座展示双方元素、模式及建议，旧 Offer 依据保留且危�
 
 test('首页替换 Offer 入口，星座表单提供两份完整选项与四元素说明',()=>{
  const main={innerHTML:'',replaceChildren(){}},grid={innerHTML:''};
- const form={querySelectorAll:()=>[],addEventListener(){}};
+ const form={querySelectorAll:()=>[],querySelector:()=>null,addEventListener(){}};
  const document={querySelector:selector=>({'#home-template':{content:{cloneNode:()=>({})}},'#tool-grid':grid,'#reading-form':form})[selector]};
- const templates=['home','reading','bindSolarControls'].map(name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('/**',start));}).join('\n');
+ const templates=['home','reading','bindSolarControls','birthFillButton','bindBirthFill'].map(name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('/**',start));}).join('\n');
  const context=vm.createContext({main,document,tools,current:null,pendingImage:null,renderDailyFortune:()=>{}});
  vm.runInContext(escapeDeclaration+'\n'+functions+'\n'+templates+'\nhome();reading("zodiac");',context);
  assert.match(grid.innerHTML,/#reading\/zodiac/);assert.ok(!grid.innerHTML.includes('#reading/offer'));
