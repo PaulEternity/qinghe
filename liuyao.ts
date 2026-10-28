@@ -1,6 +1,7 @@
 /** 京房纳甲适配层：验证六次钱币结果、筛选可复核事实，并按传统规则给出用神与应期参考。 */
 import {randomInt} from 'node:crypto';
 import engine from './vendor/liuyao-engine.cjs';
+import { parentOf } from './wuxing.ts';
 
 export const LIUYAO_RULES={version:'jingfang-najia-v2',system:'京房八宫纳甲，六亲以本卦宫五行为基准，六神按日干起',source:'MIT liuyao-divination；vendor/liuyao-LICENSE',order:'初爻到上爻，自下而上',boundary:'提供排盘事实与用神/应期的传统参考；不同流派用神取法与应期断法可能不同，不作为确定性预测'};
 
@@ -43,10 +44,6 @@ export function calculateLiuyao(values:number[],pillars:string[]) {
 const CHONG:Record<string,string>={子:'午',午:'子',丑:'未',未:'丑',寅:'申',申:'寅',卯:'酉',酉:'卯',辰:'戌',戌:'辰',巳:'亥',亥:'巳'};
 const HE:Record<string,string>={子:'丑',丑:'子',寅:'亥',亥:'寅',卯:'戌',戌:'卯',辰:'酉',酉:'辰',巳:'申',申:'巳',午:'未',未:'午'};
 const ELEMENT_BRANCH:Record<string,string[]>={木:['寅','卯'],火:['巳','午'],土:['辰','戌','丑','未'],金:['申','酉'],水:['亥','子']};
-const SHENG:Record<string,string>={木:'火',火:'土',土:'金',金:'水',水:'木'};
-
-/** 返回生我之五行（用神休囚时据此推生扶支）。 */
-function parentOf(el:string):string {for(const k in SHENG)if(SHENG[k]===el)return k;return '';}
 
 interface Category {label:string;usedGods:string[]|null;reason:string;note?:string;}
 

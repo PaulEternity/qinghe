@@ -1,31 +1,11 @@
 /** 每日运势计算模块：依据出生年月日推日主，结合今日干支给出传统参考；不依赖模型。 */
 import lunar from 'lunar-javascript';
+import { GAN_ELEMENT, ZHI_ELEMENT, shiShen as shishen, supportive } from './wuxing.ts';
 
-/** 天干五行与阴阳，用于十神推导。 */
-const GAN_WUXING: Record<string,string> = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
-/** 天干阴阳（true=阳干）。 */
-const GAN_YANG: Record<string,boolean> = {甲:true,丙:true,戊:true,庚:true,壬:true,乙:false,丁:false,己:false,辛:false,癸:false};
-/** 地支五行。 */
-const ZHI_WUXING: Record<string,string> = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
-/** 五行相生与相克（用于十神与生扶判断）。 */
-const SHENG: Record<string,string> = {水:'木',木:'火',火:'土',土:'金',金:'水'};
-const KE: Record<string,string> = {水:'火',火:'金',金:'木',木:'土',土:'水'};
 /** 五行对民俗颜色、数字与方位，仅作象征性参考。 */
 const WUXING_COLOR: Record<string,string> = {金:'白',木:'青',水:'黑',火:'红',土:'黄'};
 const WUXING_NUMBER: Record<string,string> = {金:'4、9',木:'3、8',水:'1、6',火:'2、7',土:'5、0'};
 const WUXING_DIRECTION: Record<string,string> = {金:'西',木:'东',水:'北',火:'南',土:'中'};
-
-/** 以日主天干为「我」，求他干对应的十神。 */
-function shishen(dayGan: string, otherGan: string): string {
-  const me=GAN_WUXING[dayGan], he=GAN_WUXING[otherGan];
-  const sameYin=GAN_YANG[dayGan]===GAN_YANG[otherGan];
-  if(me===he)return sameYin?'比肩':'劫财';
-  if(SHENG[he]===me)return sameYin?'偏印':'正印';
-  if(SHENG[me]===he)return sameYin?'食神':'伤官';
-  if(KE[he]===me)return sameYin?'七杀':'正官';
-  if(KE[me]===he)return sameYin?'偏财':'正财';
-  return '';
-}
 
 /** 十神对应的今日提示，措辞保持非确定性、不对现实结果作承诺。 */
 const GUIDANCE: Record<string,string> = {
@@ -41,24 +21,18 @@ const GUIDANCE: Record<string,string> = {
   正印:'今日宜静心学习、复盘与求助长辈或可信之人；给自己留一点缓冲，不必急于求成。',
 };
 
-/** 返回某个五行的生扶者（生我 + 同我），用于给出可留意的五行领域。 */
-function supportive(dayElement: string): string[] {
-  const parent=Object.keys(SHENG).find(k=>SHENG[k]===dayElement);
-  return parent?[...new Set([parent, dayElement])]:[dayElement];
-}
-
 /** 计算某一日的每日运势；birthday 为 'YYYY-MM-DD'，gender 仅存档、暂不参与计算。 */
 export function calculateDailyFortune(birthday: string, gender?: string) {
   if(typeof birthday!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(birthday))throw new Error('出生日期格式无效');
   const [by,bm,bd]=birthday.split('-').map(Number);
   const birthEc=lunar.Solar.fromYmd(by,bm,bd).getLunar().getEightChar();
-  const dayGan=birthEc.getDayGan(), dayElement=GAN_WUXING[dayGan];
+  const dayGan=birthEc.getDayGan(), dayElement=GAN_ELEMENT[dayGan];
   // 今日取服务器 UTC+8 日期，不接收客户端传入避免伪造。
   const now=new Date(Date.now()+8*3600000);
   const ty=now.getUTCFullYear(), tm=now.getUTCMonth()+1, td=now.getUTCDate();
   const today=lunar.Solar.fromYmd(ty,tm,td).getLunar();
   const dayGanZhi=today.getDayInGanZhi();
-  const todayGan=dayGanZhi[0], todayZhi=dayGanZhi[1], todayElement=ZHI_WUXING[todayZhi];
+  const todayGan=dayGanZhi[0], todayZhi=dayGanZhi[1], todayElement=ZHI_ELEMENT[todayZhi];
   const relation=shishen(dayGan, todayGan);
   const favorable=supportive(dayElement);
   const supports=favorable.map((e: string)=>`${e}（${WUXING_COLOR[e]}色系）`).join('、');

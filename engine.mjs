@@ -8,6 +8,8 @@ import { calculateFortune } from './fortune.ts';
 import { correctSolarTime } from './solar-time.ts';
 import { matchZodiac, ZODIAC_SIGNS, ZODIAC_ELEMENTS } from './zodiac.ts';
 import { calculateBaziDetail } from './bazi-detail.ts';
+import { calculateMatch } from './match.ts';
+import { calculateNaming } from './naming.ts';
 
 export const tools = {
   bazi: { name: '生辰八字', icon: '乾', desc: '四柱排盘，读懂人生的节律', birth: true },
@@ -72,7 +74,10 @@ export function prepare(input) {
   const correction={enabled:input.solarCorrection??false,longitude:input.longitude};
   if (tool.birth) facts.birth=bazi(input.birth,correction);
   if (['match','ziwei','fortune'].includes(input.tool) && !['男','女'].includes(input.gender)) throw new Error('请选择命盘性别');
-  if (input.tool==='match') facts.partner=bazi(input.partnerBirth,{enabled:input.partnerSolarCorrection??false,longitude:input.partnerLongitude});
+  if (input.tool==='match') {
+    facts.partner=bazi(input.partnerBirth,{enabled:input.partnerSolarCorrection??false,longitude:input.partnerLongitude});
+    facts.match=calculateMatch(facts.birth, facts.partner);
+  }
   if (input.tool==='ziwei') {
     if(input.focusDate)parseBirth(input.focusDate+'T12:00');
     facts.ziwei=calculateZiwei(parseBirth(facts.birth.timeCorrection.corrected),input.gender,{dayDivide:input.dayDivide,fixLeap:input.fixLeap,algorithm:input.ziweiAlgorithm,focusDate:input.focusDate});
@@ -92,7 +97,11 @@ export function prepare(input) {
     facts={timeCorrection,lines:values.map((value,i)=>({position:i+1,value,yang:value%2===1,moving:[6,9].includes(value)})),method:'三钱法，初爻至上爻。6 老阴、7 少阳、8 少阴、9 老阳。纳甲/六亲六神/世应/旬空由固定规则引擎生成；用神与应期为按问题关键词与旺衰空破动变的传统参考。',castMode:input.castMode||'auto',liuyao,analysis:analyzeLiuyao(liuyao,question)};
   }
   if (input.tool==='zodiac') facts.zodiac=matchZodiac(input.signA,input.signB);
-  if (input.tool==='naming') facts.surname=field(input.surname,'姓氏',10);
+  if (input.tool==='naming') {
+    const surname=field(input.surname,'姓氏',10);
+    facts.surname=surname;
+    facts.naming=calculateNaming({surname,dayGan:facts.birth.dayMaster.gan,strengthLevel:facts.birth.strength.level});
+  }
   if (input.tool==='palm') {
     if (typeof input.image!=='string'||input.image.length>4_200_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(input.image)) throw new Error('请上传不超过 3MB 的 PNG、JPEG 或 WebP 手掌照片');
     facts.note='只描述可见纹理；模糊处说明无法判断，不作健康诊断或寿命预测。';

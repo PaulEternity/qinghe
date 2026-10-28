@@ -1,27 +1,9 @@
 /** 流年流月运势：八字大运/流年/流月（lunar-javascript）+ 紫微大限/流年/流月/流日（iztro）。 */
 import lunar from 'lunar-javascript';
 import { ziweiChart } from './ziwei.ts';
+import { GAN_ELEMENT, shiShen } from './wuxing.ts';
 
 interface FortuneOptions {focusDate?:string;dayDivide?:unknown;fixLeap?:unknown;algorithm?:unknown;}
-
-// 十干次序与生克基础，用于以日主计算十神，不依赖第三方藏干。
-const GAN='甲乙丙丁戊己庚辛壬癸'.split('');
-const GAN_ELEMENT:Record<string,string>={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
-const GAN_YANG:Record<string,boolean>={甲:true,乙:false,丙:true,丁:false,戊:true,己:false,庚:true,辛:false,壬:true,癸:false};
-const SHENG:Record<string,string>={木:'火',火:'土',土:'金',金:'水',水:'木'};
-const KE:Record<string,string>={木:'土',火:'金',土:'水',金:'木',水:'火'};
-
-/** 依据阴阳与生克推出十神（比肩/劫财/食神/伤官/偏财/正财/七杀/正官/偏印/正印）。 */
-function shiShen(dayGan:string, targetGan:string):string {
- if(!dayGan||!targetGan)return '';
- const de=GAN_ELEMENT[dayGan],te=GAN_ELEMENT[targetGan],same=GAN_YANG[dayGan]===GAN_YANG[targetGan];
- if(de===te)return same?'比肩':'劫财';
- if(SHENG[de]===te)return same?'食神':'伤官';
- if(KE[de]===te)return same?'偏财':'正财';
- if(KE[te]===de)return same?'七杀':'正官';
- if(SHENG[te]===de)return same?'偏印':'正印';
- return '';
-}
 
 /** 提取 iztro 运限对象的可读字段（天干、地支、重叠宫位、四化）。 */
 function pick(p:{name:string;heavenlyStem:string;earthlyBranch:string;palaceNames:string[];mutagen:string[]}) {

@@ -1,3 +1,5 @@
+import { GAN_ELEMENT, GAN_YANG, ZHI_ELEMENT, SHENG, KE } from './wuxing.ts';
+
 /** 八字细盘纯规则计算：日主旺衰评分与常见神煞。不依赖模型与随机抽取，结果仅供排盘展示与解读上下文，非确定性吉凶判定。 */
 
 /** 单柱核心信息：天干、地支、地支藏干，用于旺衰与神煞判定。 */
@@ -34,17 +36,6 @@ export interface BaziDetail {
   strength: Strength;
   shensha: ShenSha[];
 }
-
-/** 天干五行。 */
-const GAN_ELEMENT: Record<string, string> = { 甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土', 己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水' };
-/** 天干阴阳（true=阳干）。 */
-const GAN_YANG: Record<string, boolean> = { 甲: true, 丙: true, 戊: true, 庚: true, 壬: true, 乙: false, 丁: false, 己: false, 辛: false, 癸: false };
-/** 地支五行。 */
-const ZHI_ELEMENT: Record<string, string> = { 子: '水', 丑: '土', 寅: '木', 卯: '木', 辰: '土', 巳: '火', 午: '火', 未: '土', 申: '金', 酉: '金', 戌: '土', 亥: '水' };
-/** 五行相生：木→火→土→金→水→木。 */
-const SHENG: Record<string, string> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' };
-/** 五行相克：木克土、火克金、土克水、金克木、水克火。 */
-const KE: Record<string, string> = { 木: '土', 火: '金', 土: '水', 金: '木', 水: '火' };
 
 const PILLAR_NAMES = ['年柱', '月柱', '日柱', '时柱'];
 
