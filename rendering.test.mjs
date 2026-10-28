@@ -58,3 +58,30 @@ test('首页替换 Offer 入口，星座表单提供两份完整选项与四元�
  assert.ok(!main.innerHTML.includes('datetime-local'));assert.ok(!main.innerHTML.includes('optionA'));
  assert.match(main.innerHTML,/查看星座匹配/);
 });
+
+test('一键填入生日：回填出生时间与性别并提示时辰，二次点击撤销',()=>{
+ const button={textContent:'填入我的生日（1997-05-20）',addEventListener(_type,fn){this.handler=fn;}};
+ const hint={textContent:''};
+ const birth={value:''};
+ const opts=[{value:'男',selected:true},{value:'女',selected:false}];
+ const gender={options:opts,selectedIndex:0};
+ const form={querySelector:selector=>selector==='#fill-birth'?button:selector==='#fill-birth-hint'?hint:null,elements:{birth,gender}};
+ const accountUser={birthday:'1997-05-20',gender:'女'};
+ const fill=source.slice(source.indexOf('function bindBirthFill('),source.indexOf('/**',source.indexOf('function bindBirthFill(')));
+ const context=vm.createContext({accountUser,form});
+ vm.runInContext(fill+'\nbindBirthFill(form);',context);
+ button.handler();
+ assert.equal(birth.value,'1997-05-20T00:00');
+ assert.equal(opts[1].selected,true);assert.equal(opts[0].selected,false);
+ assert.match(button.textContent,/已填入/);assert.match(hint.textContent,/00:00/);
+ button.handler();
+ assert.equal(birth.value,'');assert.equal(gender.selectedIndex,0);
+ assert.equal(button.textContent,'填入我的生日（1997-05-20）');assert.equal(hint.textContent,'');
+});
+
+test('紫微/流年公共函数输出性别下拉与安星规则选项，消除重复',()=>{
+ const rules=['genderField','ziweiRuleOptions'].map(name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('/**',start));}).join('\n');
+ const context=vm.createContext({});
+ vm.runInContext(rules+'\noutput=genderField()+ziweiRuleOptions("排盘规则","说明文本");',context);
+ for(const text of ['命盘性别','男','女','排盘规则','安星规则','晚子时','闰月处理','说明文本'])assert.ok(context.output.includes(text),text);
+});

@@ -76,24 +76,39 @@ async function renderDailyFortune(){
 /** 账号已保存公历生日时，为需要出生时间的排盘表单追加「填入我的生日」快捷按钮，避免重复录入。 */
 function birthFillButton(){
 	if(!accountUser?.birthday)return '';
-	return `<div class="form-actions"><button type="button" class="secondary" id="fill-birth">填入我的生日（${esc(accountUser.birthday)}）</button></div>`;
+	return `<div class="form-actions"><button type="button" class="secondary" id="fill-birth">填入我的生日（${esc(accountUser.birthday)}）</button></div><p class="help" id="fill-birth-hint" aria-live="polite"></p>`;
 }
-/** 点击快捷按钮后，把账号生日按 datetime-local 格式写入出生时间字段，并同步已保存的性别。 */
+/** 点击快捷按钮后，把账号生日按 datetime-local 格式写入出生时间字段并同步性别；再次点击撤销。账号仅记录日期，故时辰按 00:00 填入并明确提示。 */
 function bindBirthFill(form){
 	const button=form.querySelector('#fill-birth');if(!button)return;
+	const hint=form.querySelector('#fill-birth-hint'),original=button.textContent,value=accountUser.birthday+'T00:00';
 	button.addEventListener('click',()=>{
-		const birth=form.elements.birth;if(birth)birth.value=accountUser.birthday+'T00:00';
-		const gender=form.elements.gender;if(accountUser.gender&&gender){for(const option of gender.options)option.selected=option.value===accountUser.gender;}
+		const birth=form.elements.birth,gender=form.elements.gender;
+		if(birth&&birth.value===value){
+			birth.value='';
+			if(gender)gender.selectedIndex=0;
+			button.textContent=original;
+			if(hint)hint.textContent='';
+			return;
+		}
+		if(birth)birth.value=value;
+		if(accountUser.gender&&gender){for(const option of gender.options)option.selected=option.value===accountUser.gender;}
+		button.textContent='已填入（时辰按 00:00）· 点击撤销';
+		if(hint)hint.textContent='账号仅记录日期，时辰已按 00:00 填入；如知道具体时辰请手动修改。';
 	});
 }
+/** 紫微与流年共用的命盘性别下拉框。 */
+function genderField(){return `<div class="form-group"><label for="gender">命盘性别</label><select id="gender" name="gender"><option>男</option><option>女</option></select></div>`;}
+/** 紫微与流年共用的安星规则选项（安星算法、晚子时分界、闰月处理）；summary 与 help 由调用方按各自口径传入，均为内部静态文案。 */
+function ziweiRuleOptions(summary,help){return `<details class="rule-options"><summary>${summary}</summary><label>安星规则<select name="ziweiAlgorithm"><option value="default">通行规则</option><option value="zhongzhou">中州派规则</option></select></label><label>晚子时（23:00—23:59）<select name="dayDivide"><option value="forward">按次日</option><option value="current">按当日</option></select></label><label>闰月处理<select name="fixLeap"><option value="true">前半月算当月，后半月算下月</option><option value="false">闰月按原月处理</option></select></label><p class="help">${help}</p></details>`;}
 /** 根据功能展示明确的排盘规则，先生成事实，再由用户决定是否调用模型。 */
 function reading(id){
  const t=tools[id];if(!t||t.legacy)return home();current=null;pendingImage=null;
  const birth=t.birth?field('birth','出生日期与时间 · 公历北京时间','datetime-local','min="1900-01-01T00:00" max="2100-12-31T23:59"')+solarFields('birth')+birthFillButton():'';
  const liuyao=id==='liuyao'?field('castTime','实际起卦时间 · 北京时间','datetime-local')+solarFields('castTime')+`<div class="form-group"><label for="castMode">起卦方式</label><select id="castMode" name="castMode"><option value="auto">程序三钱法</option><option value="manual">手摇结果录入</option></select></div><fieldset id="manual-lines" hidden><legend>按初爻至上爻填写</legend><div class="coin-cast"><div class="coin-tray"><span class="coin zi" data-coin="0" role="img" aria-label="字面：乾隆通宝"></span><span class="coin zi" data-coin="1" role="img" aria-label="字面：乾隆通宝"></span><span class="coin zi" data-coin="2" role="img" aria-label="字面：乾隆通宝"></span></div><button type="button" class="secondary" id="cast-coins">掷铜钱 · 起一爻</button><p class="coin-result help" id="coin-result" aria-live="polite">点击后铜钱摇动，停下时显示这一爻（6/7/8/9），再在上方按爻位手动勾选。</p><details class="coin-credit"><summary>铜钱图片来源</summary><p class="help">乾隆通宝实拍：Jerry &quot;Woody&quot;（woody1778a），<a href="https://commons.wikimedia.org/wiki/File:CHINA,_QING_DYNASTY,_Qian_Long_Tong_Bao_(1736-1795),obverse_-_Flickr_-_woody1778a.jpg" target="_blank" rel="noopener noreferrer">正面</a> / <a href="https://commons.wikimedia.org/wiki/File:CHINA,_QING_DYNASTY,_Qian_Long_Tong_Bao_(1736-1795),reverse_-_Flickr_-_woody1778a.jpg" target="_blank" rel="noopener noreferrer">背面</a>，<a href="https://creativecommons.org/licenses/by-sa/2.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 2.0</a>。原图未改动，页面以圆形裁切展示。</p></details></div>${Array.from({length:6},(_,i)=>`<label>${i===0?'初爻':i===5?'上爻':i+1+'爻'}<select name="line${i+1}" data-line="${i}" disabled><option value="">请选择</option><option value="6">6 老阴（动）</option><option value="7">7 少阳（静）</option><option value="8">8 少阴（静）</option><option value="9">9 老阳（动）</option></select></label>`).join('')}<p class="help">从下往上录入；修改前爻会清空后续爻。直接录入钱币记法 6/7/8/9，避免正反面命名歧义。</p></fieldset><p class="help">按京房八宫纳甲排本变卦、六亲六神、世应和旬空。盘面可复核，不自动断定用神或应期。</p>`:'';
  const tarot=id==='tarot'?`<div class="form-group"><label for="spread">牌阵</label><select id="spread" name="spread"><option value="single">单张牌 · 当下重点</option><option value="three" selected>圣三角三牌</option><option value="celtic">凯尔特十字 · 十张牌</option></select></div><div class="form-group" id="mode-group"><label for="spreadMode">三牌视角</label><select id="spreadMode" name="spreadMode"><option value="situation-challenge-advice">处境—挑战—建议</option><option value="past-present-future">过去—现在—未来</option><option value="mind-body-spirit">心智—身体—灵魂</option><option value="you-partner-relationship">你—对方—关系</option></select></div>`:'';
- const ziwei=id==='ziwei'?`<div class="form-group"><label for="gender">命盘性别</label><select id="gender" name="gender"><option>男</option><option>女</option></select></div><details class="rule-options"><summary>紫微排盘规则</summary><label>安星规则<select name="ziweiAlgorithm"><option value="default">通行规则</option><option value="zhongzhou">中州派规则</option></select></label><label>晚子时（23:00—23:59）<select name="dayDivide"><option value="forward">按次日</option><option value="current">按当日</option></select></label><label>闰月处理<select name="fixLeap"><option value="true">前半月算当月，后半月算下月</option><option value="false">闰月按原月处理</option></select></label><p class="help">以 iztro 2.6.3 的规则为准；四化与亮度采用所选算法表，记录完整配置供复核。不同流派结果可能不同。</p></details>`+field('focusDate','查看阶段日期','date','min="1900-01-01" max="2100-12-31"'):'';
- const fortune=id==='fortune'?`<div class="form-group"><label for="gender">命盘性别</label><select id="gender" name="gender"><option>男</option><option>女</option></select></div><details class="rule-options"><summary>排盘规则</summary><label>安星规则<select name="ziweiAlgorithm"><option value="default">通行规则</option><option value="zhongzhou">中州派规则</option></select></label><label>晚子时（23:00—23:59）<select name="dayDivide"><option value="forward">按次日</option><option value="current">按当日</option></select></label><label>闰月处理<select name="fixLeap"><option value="true">前半月算当月，后半月算下月</option><option value="false">闰月按原月处理</option></select></label><p class="help">八字大运/流年/流月按 sect 2 口径，紫微运限以 iztro 2.6.3 为准，规则记录在盘面依据中供复核。</p></details>`+field('focusDate','聚焦年份日期','date','min="1900-01-01" max="2100-12-31"'):'';
+ const ziwei=id==='ziwei'?genderField()+ziweiRuleOptions('紫微排盘规则','以 iztro 2.6.3 的规则为准；四化与亮度采用所选算法表，记录完整配置供复核。不同流派结果可能不同。')+field('focusDate','查看阶段日期','date','min="1900-01-01" max="2100-12-31"'):'';
+ const fortune=id==='fortune'?genderField()+ziweiRuleOptions('排盘规则','八字大运/流年/流月按 sect 2 口径，紫微运限以 iztro 2.6.3 为准，规则记录在盘面依据中供复核。')+field('focusDate','聚焦年份日期','date','min="1900-01-01" max="2100-12-31"'):'';
  const other=(id==='match'?field('partnerBirth','对方出生日期与时间','datetime-local')+solarFields('partnerBirth','partner'):'')+(id==='naming'?field('surname','姓氏','text','maxlength="10"'):'')+(id==='palm'?field('photo','手掌照片 · 不超过 3MB','file','accept="image/png,image/jpeg,image/webp"')+'<p class="help">照片只在本次解读时发送给你配置的视觉模型，不保存到札记。</p>':'');
  // 星座选项及元素说明来自服务端同一资料表，不采集不需要的出生时间或性别。
  const zodiac=id==='zodiac'?['signA','signB'].map((name,i)=>`<div class="form-group"><label for="${name}">${i===0?'你的星座':'对方的星座'}</label><select id="${name}" name="${name}" required><option value="">请选择星座</option>${t.signs.map(sign=>`<option value="${esc(sign.id)}">${esc(sign.symbol+' '+sign.name+' · '+sign.element)}</option>`).join('')}</select></div>`).join('')+`<p class="help">按你们已确认的太阳星座选择。生日在交界日时，请先核对出生星盘；这里不根据固定日期猜测星座。</p><details><summary>火象、土象、风象、水象是什么？</summary>${Object.entries(t.elements).map(([name,text])=>glossItem(name,text)).join('')}<p class="help">四元素是西方占星的传统分类，与八字五行是不同体系。另有基本宫、固定宫、变动宫三种行动模式，结果中会一起说明。</p></details>`:'';
@@ -109,7 +124,7 @@ async function imageData(file){if(!file||file.size>3*1024*1024||!['image/png','i
 /** 第一步只生成一次可信盘面；后续解读和追问直接复用同一记录。 */
 async function submitReading(event,id){
  event.preventDefault();if(busy)return;const form=event.currentTarget,button=form.querySelector('[type=submit]'),error=form.querySelector('#form-error'),version=routeVersion;busy=true;button.disabled=true;error.textContent='';
- try{const payload=Object.fromEntries(new FormData(form));payload.tool=id;payload.gender||='男';for(const prefix of ['','partner']){const source=prefix+'solarCorrection',target=prefix?'partnerSolarCorrection':'solarCorrection';payload[target]=payload[source]==='on';if(source!==target)delete payload[source];const name=prefix+'longitude',key=prefix?'partnerLongitude':'longitude';if(payload[name]!==undefined)payload[key]=Number(payload[name]);if(name!==key)delete payload[name];}
+ try{const payload=Object.fromEntries(new FormData(form));payload.tool=id;if(id==='ziwei'||id==='fortune')payload.gender||='男';for(const prefix of ['','partner']){const source=prefix+'solarCorrection',target=prefix?'partnerSolarCorrection':'solarCorrection';payload[target]=payload[source]==='on';if(source!==target)delete payload[source];const name=prefix+'longitude',key=prefix?'partnerLongitude':'longitude';if(payload[name]!==undefined)payload[key]=Number(payload[name]);if(name!==key)delete payload[name];}
  if(id==='liuyao'&&payload.castMode==='manual')payload.lineValues=Array.from({length:6},(_,i)=>Number(payload['line'+(i+1)]));
  if(id==='ziwei'||id==='fortune')payload.fixLeap=payload.fixLeap==='true';
  if(id==='palm'){pendingImage=await imageData(payload.photo);payload.image=pendingImage;}delete payload.photo;
