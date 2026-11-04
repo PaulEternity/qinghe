@@ -17,15 +17,44 @@ async function fixture(t) {
   const password = credentials.match(/管理员密码：(\S+)/)[1];
   const code = credentials.match(/初始 AI 访问码：(\d{6})/)[1];
   let calls = 0;
-  const server = createApp({accounts:testAccounts, auth, model: async (_, options) => { calls++; options?.onDelta('模拟回答'); return { configured: true, answer: '模拟回答' }; } });
+  // 模拟模型记录请求收到的覆盖值，供测试验证保存后立即生效。
+  let lastModelName;
+  const server = createApp({accounts:testAccounts, auth, model: async (_, options) => { calls++; lastModelName = options?.modelName; options?.onDelta?.('模拟回答'); return { configured: true, answer: '模拟回答' }; } });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}`;
   t.after(async () => { server.close(); server.closeAllConnections(); await rm(directory, { recursive: true, force: true }); });
   const post = (path, input, cookie = '', headers = {}) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie, ...headers }, body: JSON.stringify(input) });
-  return { auth, directory, base, password, code, post, advance: milliseconds => { now += milliseconds; }, calls: () => calls };
+  return { auth, directory, base, password, code, post, advance: milliseconds => { now += milliseconds; }, calls: () => calls, lastModelName: () => lastModelName };
 }
 const cookie = response => response.headers.get('set-cookie').split(';')[0];
+
+/** 通过实际 HTTP 路由验证模型名的权限、持久化及生效范围。 */
+test('管理员模型名可持久化，应用于 JSON 和 SSE，留空清除覆盖', async t => {
+  const f = await fixture(t);
+  const path = '/api/access/model';
+  const ai = cookie(await f.post('/api/access/verify', { code: f.code }));
+  const read = session => fetch(f.base + path, { headers: { Cookie: session } });
+  assert.equal((await read(ai)).status, 401);
+  assert.equal((await f.post(path, { modelName: 'test-model' }, ai)).status, 401);
+  const admin = cookie(await f.post('/api/access/login', { username: 'admin', password: f.password }));
+  assert.equal((await (await read(admin)).json()).modelName, '');
+  assert.equal((await f.post(path, { modelName: 'invalid model' }, admin)).status, 400);
+  assert.equal((await f.post(path, { modelName: ' test-model ' }, admin)).status, 200);
+  assert.equal((await (await read(admin)).json()).modelName, 'test-model');
+  assert.equal((await AccessControl.open(f.directory)).state.modelName, 'test-model');
+
+  const payload = { tool: 'tarot', question: '当下' };
+  assert.equal((await f.post('/api/reading', payload, ai)).status, 200);
+  assert.equal(f.lastModelName(), 'test-model');
+  const streamed = await f.post('/api/reading', payload, ai, { Accept: 'text/event-stream' });
+  assert.match(await streamed.text(), /event: done/);
+  assert.equal(f.lastModelName(), 'test-model');
+  assert.equal((await f.post(path, { modelName: '' }, admin)).status, 200);
+  assert.equal((await AccessControl.open(f.directory)).state.modelName, undefined);
+  assert.equal((await f.post('/api/reading', payload, ai)).status, 200);
+  assert.equal(f.lastModelName(), undefined);
+});
 
 test('所有模型路径默认拒绝；验证码固定有效 5 分钟，复用不续期', async t => {
   const f = await fixture(t);

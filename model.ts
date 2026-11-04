@@ -1,6 +1,10 @@
 /** 模型适配层：JSON 与 SSE 共用验证；不回显密钥或上游错误正文，不自动重试计费请求。 */
 export interface Message {role:string;content:unknown}
-interface ModelOptions {fetcher?:typeof fetch;env?:NodeJS.ProcessEnv;onDelta?:(text:string)=>void;signal?:AbortSignal;}
+interface ModelOptions {
+ fetcher?:typeof fetch;env?:NodeJS.ProcessEnv;onDelta?:(text:string)=>void;signal?:AbortSignal;
+ /** 本次请求的管理员模型名覆盖值，缺省时使用环境变量。 */
+ modelName?:string;
+}
 /** 逐个解析 SSE 数据块，正确处理 UTF-8 分片、CRLF 和多行 data。 */
 async function consumeSSE(response:Response,onData:(data:string)=>boolean) {
  if(!response.body)throw new Error('模型响应缺少流式数据');
@@ -13,8 +17,10 @@ async function consumeSSE(response:Response,onData:(data:string)=>boolean) {
  }finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
 }
 /** 调用兼容 chat/completions 的服务，只有正常结束的完整回答才标记成功。 */
-export async function askModel(messages:Message[],{fetcher=fetch,env=process.env,onDelta,signal}:ModelOptions={}) {
- const base=env.MODEL_BASE_URL,key=env.MODEL_API_KEY,model=env.MODEL_NAME;
+export async function askModel(messages:Message[],{fetcher=fetch,env=process.env,onDelta,signal,modelName}:ModelOptions={}) {
+ // 实际发给上游的模型 ID，优先使用当前请求取得的管理员配置。
+ const model=modelName??env.MODEL_NAME;
+ const base=env.MODEL_BASE_URL,key=env.MODEL_API_KEY;
  if(!base||!key||!model)return {configured:false};
  const u=new URL(base);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)throw new Error('模型服务地址配置无效');
  const timeout=AbortSignal.timeout(90000);

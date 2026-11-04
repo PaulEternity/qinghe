@@ -73,6 +73,34 @@ export async function adminPage(main) {
     };
     bind('change-code', '/api/access/code', '访问码已更新，旧验证已全部失效。请将新码告知需要使用 AI 的用户。');
     bind('change-password', '/api/access/password');
+    const modelPanel = document.createElement('section');
+    modelPanel.className = 'panel';
+    modelPanel.innerHTML = '<form><h3>模型配置</h3><label for="model-name">模型名</label><input id="model-name" name="modelName" maxlength="128" autocomplete="off"><p class="help">留空使用部署环境的默认模型。保存后，新发起的解读和追问使用此配置。</p><button class="primary" disabled>保存模型配置</button><p role="status"></p></form>';
+    main.querySelector('.workspace').append(modelPanel);
+    const modelForm = modelPanel.querySelector('form');
+    // 输入值保存站内覆盖项，提示文字显示环境变量中的默认模型名。
+    const modelInput = modelForm.querySelector('input');
+    const modelButton = modelForm.querySelector('button');
+    const modelStatus = modelForm.querySelector('[role=status]');
+    /** 保存覆盖项，并保留输入框里的已保存值供管理员核对。 */
+    modelForm.onsubmit = async event => {
+      event.preventDefault();
+      if (modelButton.disabled) return;
+      modelButton.disabled = true;
+      modelInput.readOnly = true;
+      const modelName = modelInput.value.trim();
+      try {
+        await request('/api/access/model', { modelName });
+        modelInput.value = modelName;
+        modelStatus.textContent = modelName ? '模型名已保存' : '已恢复使用部署环境的默认模型';
+      } catch (error) { modelStatus.textContent = error.message; }
+      finally { modelButton.disabled = false; modelInput.readOnly = false; }
+    };
+    request('/api/access/model').then(config => {
+      modelInput.value = config.modelName;
+      modelInput.placeholder = config.defaultModelName || '部署环境尚未设置默认模型';
+      modelButton.disabled = false;
+    }).catch(error => { modelStatus.textContent = error.message; });
     document.getElementById('admin-logout')?.addEventListener('click', async () => {
       try { await request('/api/access/logout', {}); if (location.hash === hash) await adminPage(main); }
       catch (error) { alert(error.message); }

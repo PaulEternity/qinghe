@@ -53,7 +53,9 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
       const userId=req.user?.id;
       if(await auth.handle(req,res,path,body,json))return;
       if(req.method==='POST'&&['/api/interpret','/api/reading','/api/followup'].includes(path)&&!auth.authorized(req))return json(res,401,{code:'AI_ACCESS_REQUIRED',error:'请先验证六位数字 AI 访问码，验证后 5 分钟内有效'});
-      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&process.env.MODEL_NAME),tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
+      // 本次请求看到的模型名覆盖值，保存成功后才会供后续请求读取。
+      const modelName=auth.state?.modelName;
+      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&(modelName??process.env.MODEL_NAME)),tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
       // 每日运势：登录后按已存出生日期本地计算，未填生日返回未配置而不报错。
       if(req.method==='GET'&&path==='/api/daily-fortune') {
         if(!req.user)return json(res,401,{code:'LOGIN_REQUIRED',error:'请先登录用户账号'});
@@ -141,11 +143,11 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
           const send=(event,data)=>{if(!res.destroyed)res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);};
           const abort=new AbortController();res.on('close',()=>{if(!res.writableEnded)abort.abort();});
           send('record',{record,requestId,parentQuestionId:record.id||null});
-          try{const result=await model(messages,{onDelta:text=>send('delta',{text}),signal:abort.signal});if(abort.signal.aborted)throw new Error('模型请求已中断');send('done',await complete(result));}
+          try{const result=await model(messages,{modelName,onDelta:text=>send('delta',{text}),signal:abort.signal});if(abort.signal.aborted)throw new Error('模型请求已中断');send('done',await complete(result));}
           catch(error){send('error',{error:error.message?.startsWith('模型')?error.message:'解读或 MySQL 保存失败，请刷新札记确认后重试'});}
           return res.end();
         }
-        const result=await model(messages);
+        const result=await model(messages,modelName?{modelName}:undefined);
         return json(res,200,await complete(result));
         } finally {pending.delete(record.id);}
       }

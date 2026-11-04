@@ -55,6 +55,8 @@ CREATE DATABASE IF NOT EXISTS qinghe CHARACTER SET utf8mb4;
 | `MODEL_NAME` | `deepseek-flash`，或你实际有权调用的模型名 |
 | `MODEL_API_KEY` | 你的 DeepSeek API Key |
 
+站内管理员可以在「管理员设置 → 模型配置」保存模型名。保存后，新解读和追问使用该模型名，设置随管理员配置存入 TiDB。留空保存会恢复使用 `MODEL_NAME`。接口地址和 API Key 仍在 Render 的环境变量中设置。
+
 无需复制本机 `.env` 或 `.local` 到云端，也不要在 Render 填本机 MySQL root 密码。默认域名使用平台自动提供的 `RENDER_EXTERNAL_URL`，无需填写 `PUBLIC_ORIGIN`，也无需手填 `PORT`。
 
 TiDB 的 Public Endpoint 防火墙需要允许 Render 的出口 IP 地址段。在 Render 服务的连接信息中查看 **Outbound** 地址，再把相应 CIDR 加入 TiDB 的 Allowed IP Rules。如果首次启动因数据库连接超时失败，配置好网络规则后手动重新部署。

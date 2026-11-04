@@ -94,12 +94,17 @@ export class AccessControl {
   /** All paths that invoke a model must pass this check before parsing or streaming. */
   authorized(req) { return Boolean(this.session(req, 'ai')); }
 
+  /** 处理登录、访问验证和管理员设置请求。 */
   async handle(req, res, path, readBody, reply) {
     if (!path.startsWith('/api/access/')) return false;
     const send = (status, data) => { reply(res, status, data); return true; };
     if (req.method === 'GET' && path === '/api/access/status') return send(200, {
       ready: Boolean(this.state), admin: Boolean(this.session(req, 'admin')), expiresAt: this.session(req, 'ai')?.expiresAt || 0
     });
+    if (req.method === 'GET' && path === '/api/access/model') {
+      if (!this.session(req, 'admin')) return send(401, { error: '请先登录管理员账号' });
+      return send(200, { modelName: this.state.modelName ?? '', defaultModelName: process.env.MODEL_NAME ?? '' });
+    }
     if (req.method !== 'POST') return send(404, { error: '账号接口不存在' });
     if (!req.headers['content-type']?.startsWith('application/json')) return send(415, { error: '需要 JSON 请求' });
     if (!this.state) return send(503, { error: '管理员尚未初始化' });
@@ -127,7 +132,7 @@ export class AccessControl {
       res.setHeader('Set-Cookie', sessionCookie('qinghe_admin','',0,this.secure));
       return send(200, { ok: true });
     }
-    if (!['/api/access/code', '/api/access/password'].includes(path)) return send(404, { error: '账号接口不存在' });
+    if (!['/api/access/code', '/api/access/password', '/api/access/model'].includes(path)) return send(404, { error: '账号接口不存在' });
     if (this.updating) return send(409, { error: '正在保存，请稍后重试' });
     this.updating = true;
     try {
@@ -136,6 +141,12 @@ export class AccessControl {
       if (path.endsWith('/code')) {
         if (typeof input?.code !== 'string' || !/^\d{6}$/.test(input.code)) return send(400, { error: '访问码必须是六位数字，可包含开头的 0' });
         next.code = hash(input.code);
+      } else if (path.endsWith('/model')) {
+        // 管理员覆盖值，留空时清除覆盖并恢复使用环境变量。
+        const modelName = typeof input?.modelName === 'string' ? input.modelName.trim() : null;
+        if (modelName === null || !/^[A-Za-z0-9_./:-]{0,128}$/.test(modelName)) return send(400, { error: '模型名最多 128 个字符，仅支持字母、数字和 _ . / : -' });
+        if (modelName) next.modelName = modelName;
+        else delete next.modelName;
       } else {
         if (!matches(input?.currentPassword, this.state.password)) return send(401, { error: '当前管理员密码不正确' });
         if (typeof input?.password !== 'string' || input.password.length < 12 || input.password.length > 128) return send(400, { error: '管理员密码长度应为 12—128 位' });
@@ -143,7 +154,7 @@ export class AccessControl {
       }
       await this.persist(next);
       this.state = next;
-      this.revoke(path.endsWith('/code') ? 'ai' : 'admin');
+      if (!path.endsWith('/model')) this.revoke(path.endsWith('/code') ? 'ai' : 'admin');
       return send(200, { ok: true });
     } finally { this.updating = false; }
   }
