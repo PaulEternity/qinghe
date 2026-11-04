@@ -75,11 +75,22 @@ export async function adminPage(main) {
     bind('change-password', '/api/access/password');
     const modelPanel = document.createElement('section');
     modelPanel.className = 'panel';
-    modelPanel.innerHTML = '<form><h3>模型配置</h3><label for="model-name">模型名</label><input id="model-name" name="modelName" maxlength="128" autocomplete="off"><p class="help">留空使用部署环境的默认模型。保存后，新发起的解读和追问使用此配置。</p><button class="primary" disabled>保存模型配置</button><p role="status"></p></form>';
+    modelPanel.innerHTML = `<form autocomplete="off">
+      <h3>模型配置</h3>
+      <label for="model-base-url">接口地址</label>
+      <input id="model-base-url" name="baseUrl" type="url" maxlength="256">
+      <p class="help">支持 DeepSeek 和讯飞星火。讯飞填写 https://maas-api.cn-huabei-1.xf-yun.com/v2。</p>
+      <label for="model-name">模型名</label>
+      <input id="model-name" name="modelName" maxlength="128">
+      <label for="model-api-key">API Key</label>
+      <input id="model-api-key" name="apiKey" type="password" maxlength="1024" autocomplete="new-password">
+      <p class="help">更换接口时请填写该接口的 Key；接口地址不变时可留空保留已保存的 Key。清空三项并保存可恢复部署默认配置。</p>
+      <button class="primary" disabled>保存模型配置</button><p role="status"></p>
+    </form>`;
     main.querySelector('.workspace').append(modelPanel);
     const modelForm = modelPanel.querySelector('form');
-    // 输入值保存站内覆盖项，提示文字显示环境变量中的默认模型名。
-    const modelInput = modelForm.querySelector('input');
+    // 表单中的值用于覆盖部署配置；Key 输入框仅接收本次新输入的密钥。
+    const { baseUrl, modelName, apiKey } = modelForm.elements;
     const modelButton = modelForm.querySelector('button');
     const modelStatus = modelForm.querySelector('[role=status]');
     /** 保存覆盖项，并保留输入框里的已保存值供管理员核对。 */
@@ -87,18 +98,25 @@ export async function adminPage(main) {
       event.preventDefault();
       if (modelButton.disabled) return;
       modelButton.disabled = true;
-      modelInput.readOnly = true;
-      const modelName = modelInput.value.trim();
+      const values = Object.fromEntries(new FormData(modelForm));
+      for (const field of [baseUrl, modelName, apiKey]) field.readOnly = true;
       try {
-        await request('/api/access/model', { modelName });
-        modelInput.value = modelName;
-        modelStatus.textContent = modelName ? '模型名已保存' : '已恢复使用部署环境的默认模型';
+        await request('/api/access/model', values);
+        apiKey.value = '';
+        apiKey.placeholder = baseUrl.value.trim() ? '已保存，留空保留' : '';
+        modelStatus.textContent = values.modelName.trim() ? '模型配置已保存' : '已恢复使用部署环境的默认模型';
       } catch (error) { modelStatus.textContent = error.message; }
-      finally { modelButton.disabled = false; modelInput.readOnly = false; }
+      finally {
+        modelButton.disabled = false;
+        for (const field of [baseUrl, modelName, apiKey]) field.readOnly = false;
+      }
     };
     request('/api/access/model').then(config => {
-      modelInput.value = config.modelName;
-      modelInput.placeholder = config.defaultModelName || '部署环境尚未设置默认模型';
+      baseUrl.value = config.baseUrl;
+      baseUrl.placeholder = config.defaultBaseUrl || '部署环境尚未设置默认地址';
+      modelName.value = config.modelName;
+      modelName.placeholder = config.defaultModelName || '部署环境尚未设置默认模型';
+      apiKey.placeholder = config.hasSavedKey ? '已保存，留空保留' : '';
       modelButton.disabled = false;
     }).catch(error => { modelStatus.textContent = error.message; });
     document.getElementById('admin-logout')?.addEventListener('click', async () => {

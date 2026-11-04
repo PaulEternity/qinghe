@@ -55,7 +55,9 @@ CREATE DATABASE IF NOT EXISTS qinghe CHARACTER SET utf8mb4;
 | `MODEL_NAME` | `deepseek-flash`，或你实际有权调用的模型名 |
 | `MODEL_API_KEY` | 你的 DeepSeek API Key |
 
-站内管理员可以在「管理员设置 → 模型配置」保存模型名。保存后，新解读和追问使用该模型名，设置随管理员配置存入 TiDB。留空保存会恢复使用 `MODEL_NAME`。接口地址和 API Key 仍在 Render 的环境变量中设置。
+站内管理员可以在「管理员设置 → 模型配置」保存接口地址、模型名和 API Key。讯飞星火使用 `https://maas-api.cn-huabei-1.xf-yun.com/v2` 和 `spark-x2.6`，DeepSeek 使用 `https://api.deepseek.com` 和账号有权限调用的模型名。保存后，新解读和追问立即使用新配置。清空三项并保存可恢复部署环境的默认配置。
+
+站内录入的 API Key 加密后随管理员配置存入 TiDB。Render Blueprint 自动生成 `MODEL_SETTINGS_SECRET`。手动创建的服务和本机运行环境需要先设置此变量，可用 `openssl rand -hex 32` 生成，并在后续部署中保留同一值。若更换该加密密钥，需在管理员页面重新保存 API Key。
 
 无需复制本机 `.env` 或 `.local` 到云端，也不要在 Render 填本机 MySQL root 密码。默认域名使用平台自动提供的 `RENDER_EXTERNAL_URL`，无需填写 `PUBLIC_ORIGIN`，也无需手填 `PORT`。
 

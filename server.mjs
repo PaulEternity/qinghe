@@ -9,7 +9,7 @@ import { prepare, tools } from './engine.mjs';
 import { MysqlStore } from './store.ts';
 import { correctSolarTime } from './solar-time.ts';
 import { calculateDailyFortune } from './daily-fortune.ts';
-import { AccessControl } from './access.mjs';
+import { AccessControl, openModelKey } from './access.mjs';
 import { UserAccounts } from './accounts.mjs';
 import { deploymentConfig } from './deployment.mjs';
 
@@ -53,9 +53,10 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
       const userId=req.user?.id;
       if(await auth.handle(req,res,path,body,json))return;
       if(req.method==='POST'&&['/api/interpret','/api/reading','/api/followup'].includes(path)&&!auth.authorized(req))return json(res,401,{code:'AI_ACCESS_REQUIRED',error:'请先验证六位数字 AI 访问码，验证后 5 分钟内有效'});
-      // 本次请求看到的模型名覆盖值，保存成功后才会供后续请求读取。
+      // 本次请求看到的覆盖配置，后续保存不会改变已经开始的请求。
       const modelName=auth.state?.modelName;
-      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:!!(process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL&&(modelName??process.env.MODEL_NAME)),tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
+      const modelConnection=auth.state?.modelConnection;
+      if(req.method==='GET'&&path==='/api/status') return json(res,200,{configured:Boolean((modelName??process.env.MODEL_NAME)&&(modelConnection?process.env.MODEL_SETTINGS_SECRET?.length>=32:process.env.MODEL_API_KEY&&process.env.MODEL_BASE_URL)),tools,storage:store?'mysql':'none',user:req.user||null,admin:Boolean(auth.session?.(req,'admin'))});
       // 每日运势：登录后按已存出生日期本地计算，未填生日返回未配置而不报错。
       if(req.method==='GET'&&path==='/api/daily-fortune') {
         if(!req.user)return json(res,401,{code:'LOGIN_REQUIRED',error:'请先登录用户账号'});
@@ -130,6 +131,10 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
         const messages=messagesFor(record,history,input.image);
         if(pending.has(record.id))throw new Error('此盘正在解读，请等待完成');
         if(deployment.cloud&&pending.size>=2)return json(res,429,{error:'当前解读请求较多，请稍后重试'});
+        // 仅授权的模型请求可以解密 Key；接口地址和 Key 必须成对传给适配器。
+        const modelOptions=modelConnection
+          ?{modelName,connection:{baseUrl:modelConnection.baseUrl,apiKey:openModelKey(modelConnection)}}
+          :modelName?{modelName}:undefined;
         const requestId=randomUUID();
         /** 只在完整回答落库后确认成功；断流和失败片段不会覆盖旧对话。 */
         const complete=async result=>{
@@ -143,11 +148,11 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
           const send=(event,data)=>{if(!res.destroyed)res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);};
           const abort=new AbortController();res.on('close',()=>{if(!res.writableEnded)abort.abort();});
           send('record',{record,requestId,parentQuestionId:record.id||null});
-          try{const result=await model(messages,{modelName,onDelta:text=>send('delta',{text}),signal:abort.signal});if(abort.signal.aborted)throw new Error('模型请求已中断');send('done',await complete(result));}
+          try{const result=await model(messages,{...modelOptions,onDelta:text=>send('delta',{text}),signal:abort.signal});if(abort.signal.aborted)throw new Error('模型请求已中断');send('done',await complete(result));}
           catch(error){send('error',{error:error.message?.startsWith('模型')?error.message:'解读或 MySQL 保存失败，请刷新札记确认后重试'});}
           return res.end();
         }
-        const result=await model(messages,modelName?{modelName}:undefined);
+        const result=await model(messages,modelOptions);
         return json(res,200,await complete(result));
         } finally {pending.delete(record.id);}
       }

@@ -35,3 +35,5 @@ services:
         value: deepseek-flash
       - key: MODEL_API_KEY
         sync: false
+      - key: MODEL_SETTINGS_SECRET
+        generateValue: true

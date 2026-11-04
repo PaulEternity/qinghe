@@ -1,4 +1,4 @@
-import { randomBytes, randomInt, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
+import { randomBytes, randomInt, scryptSync, timingSafeEqual, createHash, createCipheriv, createDecipheriv } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { sessionCookie } from './session-cookie.mjs';
@@ -7,6 +7,39 @@ const FIVE_MINUTES = 5 * 60 * 1000;
 const hash = (text, salt = randomBytes(16).toString('hex')) => ({ salt, digest: scryptSync(text, salt, 32).toString('hex') });
 const matches = (text, saved) => typeof text === 'string' && text.length <= 128 && timingSafeEqual(Buffer.from(saved.digest, 'hex'), scryptSync(text, saved.salt, 32));
 const tokenHash = token => createHash('sha256').update(token).digest('hex');
+
+// 站内可配置的公开 API 根地址，限制服务端请求的目标。
+const MODEL_BASE_URLS = new Set(['https://api.deepseek.com', 'https://api.deepseek.com/v1', 'https://maas-api.cn-huabei-1.xf-yun.com/v2']);
+
+/** 读取部署侧独立保存的加密密钥，数据库只保存密文。 */
+function modelEncryptionKey() {
+  const secret = process.env.MODEL_SETTINGS_SECRET;
+  if (!secret || secret.length < 32) throw new Error('模型配置缺少部署端加密密钥，请设置 MODEL_SETTINGS_SECRET');
+  return createHash('sha256').update(secret).digest();
+}
+
+/** 加密 API Key，并将密文与其允许使用的接口绑定。 */
+function sealModelKey(apiKey, baseUrl) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', modelEncryptionKey(), iv);
+  cipher.setAAD(Buffer.from(baseUrl));
+  const ciphertext = Buffer.concat([cipher.update(apiKey, 'utf8'), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString('base64');
+}
+
+/** 仅在即将请求上游时读取明文 Key。 */
+export function openModelKey({ baseUrl, sealedKey }) {
+  try {
+    // 密文格式为 12 字节 IV、16 字节认证标签和加密内容。
+    const bytes = Buffer.from(sealedKey, 'base64');
+    const decipher = createDecipheriv('aes-256-gcm', modelEncryptionKey(), bytes.subarray(0, 12));
+    decipher.setAAD(Buffer.from(baseUrl));
+    decipher.setAuthTag(bytes.subarray(12, 28));
+    return Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString('utf8');
+  } catch {
+    throw new Error('模型 API Key 无法解密，请在管理员设置重新保存 Key');
+  }
+}
 
 /** Local single-admin account; AI permission is a separate, fixed five-minute session. */
 export class AccessControl {
@@ -103,7 +136,12 @@ export class AccessControl {
     });
     if (req.method === 'GET' && path === '/api/access/model') {
       if (!this.session(req, 'admin')) return send(401, { error: '请先登录管理员账号' });
-      return send(200, { modelName: this.state.modelName ?? '', defaultModelName: process.env.MODEL_NAME ?? '' });
+      res.setHeader('Cache-Control', 'no-store');
+      return send(200, {
+        modelName: this.state.modelName ?? '', defaultModelName: process.env.MODEL_NAME ?? '',
+        baseUrl: this.state.modelConnection?.baseUrl ?? '', defaultBaseUrl: process.env.MODEL_BASE_URL ?? '',
+        hasSavedKey: Boolean(this.state.modelConnection?.sealedKey)
+      });
     }
     if (req.method !== 'POST') return send(404, { error: '账号接口不存在' });
     if (!req.headers['content-type']?.startsWith('application/json')) return send(415, { error: '需要 JSON 请求' });
@@ -142,9 +180,25 @@ export class AccessControl {
         if (typeof input?.code !== 'string' || !/^\d{6}$/.test(input.code)) return send(400, { error: '访问码必须是六位数字，可包含开头的 0' });
         next.code = hash(input.code);
       } else if (path.endsWith('/model')) {
-        // 管理员覆盖值，留空时清除覆盖并恢复使用环境变量。
+        if (!this.session(req, 'admin')) return send(401, { error: '请先登录管理员账号' });
+        // 空配置恢复部署默认值。旧版只传模型名的请求保留已保存的接口与密钥。
         const modelName = typeof input?.modelName === 'string' ? input.modelName.trim() : null;
         if (modelName === null || !/^[A-Za-z0-9_./:-]{0,128}$/.test(modelName)) return send(400, { error: '模型名最多 128 个字符，仅支持字母、数字和 _ . / : -' });
+        if (input.baseUrl !== undefined || input.apiKey !== undefined) {
+          if (typeof input.baseUrl !== 'string' || typeof input.apiKey !== 'string') return send(400, { error: '请填写有效的接口地址和 API Key' });
+          // 同时接受 API 根地址和完整的 Chat Completions 地址。
+          const baseUrl = input.baseUrl.trim().replace(/\/+$/, '').replace(/\/chat\/completions$/, '');
+          const apiKey = input.apiKey.trim();
+          if (!baseUrl && !apiKey) delete next.modelConnection;
+          else {
+            if (!MODEL_BASE_URLS.has(baseUrl)) return send(400, { error: '模型接口地址仅支持 DeepSeek 和讯飞星火的官方地址' });
+            if (!modelName) return send(400, { error: '请填写模型名' });
+            if (apiKey && !/^[!-~]{1,1024}$/.test(apiKey)) return send(400, { error: 'API Key 格式无效' });
+            if (apiKey) next.modelConnection = { baseUrl, sealedKey: sealModelKey(apiKey, baseUrl) };
+            else if (next.modelConnection?.baseUrl !== baseUrl) return send(400, { error: '切换接口时请填写该接口的 API Key' });
+          }
+        }
+        if (next.modelConnection && !modelName) return send(400, { error: '请填写模型名' });
         if (modelName) next.modelName = modelName;
         else delete next.modelName;
       } else {
