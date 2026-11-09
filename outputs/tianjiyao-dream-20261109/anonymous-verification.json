@@ -1,0 +1,23 @@
+{
+  "evidence_id": "ev_25871f373a62c673f7d0bf28593d9430013ce8a7454823f296f3bf3410c72b40",
+  "all_steps_completed": true,
+  "api_requests_observed": [
+    {
+      "method": "GET",
+      "url": "https://tianjiyao.com/api/credits/cost?service=divination_dream"
+    },
+    {
+      "method": "GET",
+      "url": "https://tianjiyao.com/api/credits/rules"
+    }
+  ],
+  "dream_request_observed": false,
+  "capture_completeness": {
+    "status": "incomplete",
+    "equality_eligible": false,
+    "missing_sections": [
+      "events"
+    ],
+    "truncated_sections": []
+  }
+}

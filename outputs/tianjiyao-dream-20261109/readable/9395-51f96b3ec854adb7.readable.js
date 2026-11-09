@@ -1,0 +1,280 @@
+// 来源：REA 导出的公开生产脚本。仅格式化，保留打包模块与混淆变量；不是可独立运行的源码工程。
+"use strict";
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[9395],{
+  69395:(s,e,t)=>{
+    t.d(e,{
+      U:()=>r,authClient:()=>n}
+    );
+    var i=t(85800);
+    class r{
+      get baseUrl(){
+        let s=(0,i.hY)();
+        return"".concat(s,"/api/auth")}
+      onAuthStateChange(s){
+        return this.subscribers.push(s),s(this.user),()=>{
+          let e=this.subscribers.indexOf(s);
+          e>-1&&this.subscribers.splice(e,1)}
+        }
+      notifySubscribers(){
+        this.subscribers.forEach(s=>s(this.user))}
+      async login(s,e){
+        try{
+          let t=await fetch("".concat(this.baseUrl,"/login"),{
+            method:"POST",headers:{
+              "Content-Type":"application/json"}
+            ,body:JSON.stringify({
+              email:s,password:e}
+            )}
+          ),i=await t.json();
+          return i.success&&i.user&&i.session&&(this.user=i.user,this.session=i.session,this.saveSession(),this.notifySubscribers(),this.initializeUserCredits().catch(s=>{
+            }
+          )),i}
+        catch(s){
+          return{
+            success:!1,error:"网络错误，请重试"}
+          }
+        }
+      async register(s,e,t,i){
+        try{
+          let r=await fetch("".concat(this.baseUrl,"/register"),{
+            method:"POST",headers:{
+              "Content-Type":"application/json"}
+            ,body:JSON.stringify({
+              email:s,password:e,name:t,invitationCode:i}
+            )}
+          ),n=await r.json();
+          return n.success&&n.user&&n.session&&(this.user=n.user,this.session=n.session,this.saveSession(),this.notifySubscribers(),this.initializeUserCredits().catch(s=>{
+            }
+          )),n}
+        catch(s){
+          return{
+            success:!1,error:"网络错误，请重试"}
+          }
+        }
+      async logout(){
+        var s,e,t,i,r;
+        try{
+          (null==(s=this.session)?void 0:s.access_token)&&await fetch("".concat(this.baseUrl,"/logout"),{
+            method:"POST",headers:{
+              Authorization:"Bearer ".concat(this.session.access_token)}
+            }
+          )}
+        catch(s){
+          }
+        finally{
+          null==(r=window.google)||null==(i=r.accounts)||null==(t=i.id)||null==(e=t.disableAutoSelect)||e.call(t),this.stopTokenExpiryCheck(),this.user=null,this.session=null,this.clearSession(),this.notifySubscribers()}
+        }
+      async loginWithOAuth(s){
+        window.location.href="".concat(this.baseUrl,"/oauth?provider=").concat(s)}
+      async loginWithGoogleToken(s,e){
+        try{
+          let t=await fetch("".concat(this.baseUrl,"/google-token"),{
+            method:"POST",headers:{
+              "Content-Type":"application/json"}
+            ,body:JSON.stringify({
+              id_token:s,...e?{
+                nonce:e}
+              :{
+                }
+              }
+            )}
+          ),i=await t.json();
+          return i.success&&i.user&&i.session&&(this.user=i.user,this.session=i.session,this.saveSession(),this.notifySubscribers(),this.initializeUserCredits().catch(s=>{
+            }
+          )),i}
+        catch(s){
+          return{
+            success:!1,error:"网络错误，请重试"}
+          }
+        }
+      async resendVerification(s){
+        try{
+          let e=await fetch("".concat(this.baseUrl,"/resend"),{
+            method:"POST",headers:{
+              "Content-Type":"application/json"}
+            ,body:JSON.stringify({
+              email:s}
+            )}
+          );
+          return await e.json()}
+        catch(s){
+          return{
+            success:!1,error:"网络错误，请重试"}
+          }
+        }
+      async verifyEmailOtp(s,e){
+        let t=arguments.length>2&&void 0!==arguments[2]?arguments[2]:"signup";
+        try{
+          let i=await fetch("".concat(this.baseUrl,"/verify-otp"),{
+            method:"POST",headers:{
+              "Content-Type":"application/json"}
+            ,body:JSON.stringify({
+              email:s,token:e,type:t}
+            )}
+          ),r=await i.json();
+          return r.success&&r.user&&r.session&&(this.user=r.user,this.session=r.session,this.saveSession(),this.notifySubscribers(),this.initializeUserCredits().catch(s=>{
+            }
+          )),r}
+        catch(s){
+          return{
+            success:!1,error:"网络错误，请重试"}
+          }
+        }
+      getUser(){
+        return this.user}
+      getSession(){
+        return this.session}
+      setSession(s,e){
+        this.user=s,this.session=e,this.saveSession(),this.notifySubscribers(),this.initializeUserCredits().catch(s=>{
+          }
+        )}
+      async initializeUserCredits(){
+        var s;
+        if(null==(s=this.session)?void 0:s.access_token)try{
+          let s=await fetch((0,i.c_)("/api/credits/init"),{
+            method:"POST",headers:{
+              Authorization:"Bearer ".concat(this.session.access_token),"Content-Type":"application/json"}
+            }
+          );
+          (await s.json()).success}
+        catch(s){
+          }
+        }
+      isAuthenticated(){
+        return null!==this.user&&null!==this.session}
+      getAuthHeaders(){
+        var s;
+        return(null==(s=this.session)?void 0:s.access_token)?{
+          Authorization:"Bearer ".concat(this.session.access_token),"Content-Type":"application/json"}
+        :{
+          "Content-Type":"application/json"}
+        }
+      async fetchUserInfo(s){
+        var e;
+        let t=s||(null==(e=this.session)?void 0:e.access_token);
+        if(!t)return{
+          success:!1,error:"未找到访问令牌"}
+        ;
+        try{
+          let s=await fetch("".concat(this.baseUrl,"/user"),{
+            method:"GET",headers:{
+              Authorization:"Bearer ".concat(t),"Content-Type":"application/json"}
+            }
+          ),e=await s.json();
+          if(e.success&&e.user)return{
+            success:!0,user:e.user}
+          ;
+          return{
+            success:!1,error:e.error||"获取用户信息失败"}
+          }
+        catch(s){
+          return{
+            success:!1,error:"网络错误，请重试"}
+          }
+        }
+      async refreshUser(){
+        var s;
+        if(!(null==(s=this.session)?void 0:s.access_token))return!1;
+        try{
+          let s=await this.fetchUserInfo();
+          if(s.success&&s.user)return this.user=s.user,this.saveSession(),this.notifySubscribers(),!0;
+          return!1}
+        catch(s){
+          return!1}
+        }
+      getAccessToken(){
+        var s;
+        if(!this.session)return null;
+        let e=Date.now()/1e3;
+        return this.session.expires_at-e<300&&!this.isRefreshing&&this.refreshToken().catch(s=>{
+          }
+        ),(null==(s=this.session)?void 0:s.access_token)||null}
+      async getValidAccessToken(){
+        var s;
+        if(!this.session)return null;
+        let e=Date.now()/1e3;
+        return this.session.expires_at-e<300&&!await this.refreshToken()?null:(null==(s=this.session)?void 0:s.access_token)||null}
+      async signInAnonymously(s){
+        return{
+          success:!1,error:"匿名登录已关闭，请使用邮箱或 Google 登录"}
+        }
+      startTokenExpiryCheck(){
+        this.refreshTimer=setInterval(()=>{
+          this.checkAndRefreshToken()}
+        ,3e5)}
+      stopTokenExpiryCheck(){
+        this.refreshTimer&&(clearInterval(this.refreshTimer),this.refreshTimer=null)}
+      setupVisibilityListener(){
+        if("undefined"==typeof document)return;
+        let s=async()=>{
+          if(!document.hidden&&this.session){
+            let s=Date.now()/1e3;
+            this.session.expires_at-s<600&&await this.refreshToken()}
+          }
+        ;
+        document.addEventListener("visibilitychange",s),window.addEventListener("focus",s),window.addEventListener("pageshow",e=>{
+          e.persisted&&s()}
+        )}
+      async checkAndRefreshToken(){
+        if(!this.session||this.isRefreshing)return;
+        let s=Date.now()/1e3;
+        this.session.expires_at-s<600&&await this.refreshToken()}
+      async refreshToken(){
+        var s;
+        return!!(null==(s=this.session)?void 0:s.refresh_token)&&(this.refreshPromise||(this.isRefreshing=!0,this.refreshPromise=(async()=>{
+          try{
+            var s;
+            let e=await fetch("".concat(this.baseUrl,"/refresh"),{
+              method:"POST",headers:{
+                "Content-Type":"application/json"}
+              ,body:JSON.stringify({
+                refresh_token:null==(s=this.session)?void 0:s.refresh_token}
+              )}
+            ),t=await e.json();
+            if(t.success&&t.session)return this.session=t.session,this.saveSession(),!0;
+            return this.logout(),!1}
+          catch(s){
+            return this.logout(),!1}
+          finally{
+            this.isRefreshing=!1,this.refreshPromise=null}
+          }
+        )()),this.refreshPromise)}
+      saveSession(){
+        var s;
+        localStorage.setItem("auth_user",JSON.stringify(this.user)),localStorage.setItem("auth_session",JSON.stringify(this.session)),(null==(s=this.session)?void 0:s.expires_at)&&localStorage.setItem("auth_token_expires_at",this.session.expires_at.toString())}
+      loadSession(){
+        try{
+          let s=localStorage.getItem("auth_user"),e=localStorage.getItem("auth_session");
+          if(s&&e){
+            this.user=JSON.parse(s),this.session=JSON.parse(e);
+            let t=Date.now()/1e3;
+            this.session&&this.session.expires_at<t?this.refreshToken():this.session&&this.session.expires_at-t<600&&this.refreshToken()}
+          }
+        catch(s){
+          this.clearSession()}
+        }
+      isTokenExpired(){
+        let s=localStorage.getItem("auth_token_expires_at");
+        return!!s&&parseInt(s,10)-Date.now()/1e3<300}
+      clearSession(){
+        localStorage.removeItem("auth_user"),localStorage.removeItem("auth_session"),localStorage.removeItem("auth_token_expires_at")}
+      static isValidEmail(s){
+        return/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)}
+      static isValidPassword(s){
+        return s.length<8?{
+          valid:!1,message:"密码至少需要8个字符"}
+        :s.length>72?{
+          valid:!1,message:"密码不能超过72个字符"}
+        :/[a-zA-Z]/.test(s)?/[0-9]/.test(s)?{
+          valid:!0}
+        :{
+          valid:!1,message:"密码必须包含至少一个数字"}
+        :{
+          valid:!1,message:"密码必须包含至少一个字母"}
+        }
+      constructor(){
+        this.user=null,this.session=null,this.subscribers=[],this.refreshTimer=null,this.isRefreshing=!1,this.refreshPromise=null,this.loadSession(),this.startTokenExpiryCheck(),this.setupVisibilityListener()}
+      }
+    let n=new r}
+  }
+]);

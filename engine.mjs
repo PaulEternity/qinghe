@@ -10,6 +10,7 @@ import { matchZodiac, ZODIAC_SIGNS, ZODIAC_ELEMENTS } from './zodiac.ts';
 import { calculateBaziDetail } from './bazi-detail.ts';
 import { calculateMatch } from './match.ts';
 import { calculateNaming } from './naming.ts';
+import { DREAM_SIGNALS, prepareDream } from './dream.ts';
 
 export const tools = {
   bazi: { name: '生辰八字', icon: '乾', desc: '四柱排盘，读懂人生的节律', birth: true },
@@ -22,7 +23,7 @@ export const tools = {
   // 仅保留旧札记识别；首页隐藏且禁止创建新的 Offer 记录。
   offer: { name: 'Offer 对比', icon: '择', legacy: true },
   naming: { name: '东方起名', icon: '名', desc: '在字义与音韵之间，寻找好名字', birth: true },
-  dream: { name: '梦境札记', icon: '梦', desc: '记录梦境，梳理现实中的牵挂' },
+  dream: { name: '梦境札记', icon: '梦', desc: '结合传统象义与情绪线索，梳理梦境中的牵挂', signals: DREAM_SIGNALS },
   palm: { name: '手相观察', icon: '掌', desc: '上传手掌照片，获得视觉解读' }
 };
 /** 验证公历墙上时间；本版统一按北京时间，不悄悄套用服务器时区。 */
@@ -97,6 +98,8 @@ export function prepare(input) {
     facts={timeCorrection,lines:values.map((value,i)=>({position:i+1,value,yang:value%2===1,moving:[6,9].includes(value)})),method:'三钱法，初爻至上爻。6 老阴、7 少阳、8 少阴、9 老阳。纳甲/六亲六神/世应/旬空由固定规则引擎生成；用神与应期为按问题关键词与旺衰空破动变的传统参考。',castMode:input.castMode||'auto',liuyao,analysis:analyzeLiuyao(liuyao,question)};
   }
   if (input.tool==='zodiac') facts.zodiac=matchZodiac(input.signA,input.signB);
+  // 补充资料与原始梦境一起保存，后续解读和追问始终使用同一份上下文。
+  if (input.tool==='dream') facts.dream=prepareDream(input);
   if (input.tool==='naming') {
     const surname=field(input.surname,'姓氏',10);
     facts.surname=surname;

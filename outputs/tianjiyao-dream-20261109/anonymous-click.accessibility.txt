@@ -1,0 +1,169 @@
+- document:
+  - banner:
+    - button "打开工具菜单":
+      - img
+    - link "Taiji 天机爻 问事 · 观势":
+      - /url: /zh
+      - img "Taiji"
+      - text: 天机爻 问事 · 观势
+    - navigation "网站导航":
+      - link "知识库":
+        - /url: /zh/learn
+        - img
+      - button "切换到浅色主题":
+        - img
+      - button "登录"
+  - main:
+    - navigation "Breadcrumb":
+      - list:
+        - listitem:
+          - link "在线占卜":
+            - /url: /zh
+        - listitem: "> 梦境解读"
+    - text: 梦境记录与解读
+    - heading "梦境解读" [level=1]
+    - paragraph: 记录梦境内容，从传统象义与情绪线索中寻找可供回看的脉络。
+    - heading "周公解梦" [level=2]
+    - paragraph: 基于传统周公解梦理论，结合现代心理学和AI技术，为您提供专业的梦境解读服务
+    - text: 神遇为梦 · 物象通灵 · 潜识投射
+    - heading "梦境信息" [level=3]:
+      - img
+      - text: 梦境信息
+    - button "查看历史":
+      - img
+      - text: 查看历史
+    - paragraph: 请详细描述您的梦境，我们将为您提供专业的解读分析
+    - img
+    - text: 梦境内容
+    - textbox "梦境内容":
+      - /placeholder: 请详细描述您的梦境内容，包括场景、人物、情节、情感等...
+      - text: 梦见自己在学校找教室，一直找不到，最后听到铃声惊醒。
+    - img
+    - text: 做梦日期
+    - button "做梦日期":
+      - img
+      - text: 做梦日期
+    - img
+    - text: 情感状态
+    - textbox "情感状态":
+      - /placeholder: 做梦时的情感状态（如：恐惧、快乐、焦虑等）
+    - img
+    - text: 背景信息
+    - textbox "背景信息":
+      - /placeholder: 做梦前的经历、想法或生活状况（可选）
+    - img
+    - text: 增强线索 可选
+    - paragraph: 这些可选信息会直接进入解梦结构层，帮助 AI 少猜测、多依据你提供的事实。
+    - img
+    - text: 这是反复出现的梦吗
+    - button "是，最近反复出现"
+    - button "不是，这次是偶发"
+    - paragraph: 如果最近总梦到同一主题，可以明确告诉 AI，它会在心理成因和现实映射里专门处理重复议题。
+    - img
+    - text: 睡眠或身体线索
+    - button "睡眠不足"
+    - button "惊醒/浅睡"
+    - button "疲劳过载"
+    - button "饮酒刺激"
+    - button "身体不适"
+    - button "鬼压床/动不了"
+    - paragraph: 只勾和这次梦有关的线索，避免模型把生理层硬套进解读。
+    - img
+    - text: 结构补充
+    - textbox "结构补充":
+      - /placeholder: 如果梦里内容很碎，可以补充：最关键的人、场景、转折、结尾或惊醒方式。
+    - paragraph: 例如：一直在学校找教室，最后听到铃声惊醒；或：先逃跑，后来开始反击。
+    - button "分析梦境":
+      - img
+      - text: 分析梦境
+    - button "重新输入":
+      - img
+      - text: 重新输入
+    - heading "相关服务" [level=2]
+    - paragraph: 深入了解占卜知识和技巧，提升您的占卜体验
+    - link "免费在线算命大全 一站式体验生辰八字排盘、周易占卦与紫微命盘在线测算 阅读更多":
+      - /url: /zh/free-fortune
+      - heading "免费在线算命大全" [level=3]
+      - paragraph: 一站式体验生辰八字排盘、周易占卦与紫微命盘在线测算
+      - text: 阅读更多
+      - img
+    - link "周公解梦与潜意识分析 从梦境意象中寻找心理线索、情绪隐喻与吉凶提示 阅读更多":
+      - /url: /zh/dream
+      - heading "周公解梦与潜意识分析" [level=3]
+      - paragraph: 从梦境意象中寻找心理线索、情绪隐喻与吉凶提示
+      - text: 阅读更多
+      - img
+    - link "64卦在线详解指南 深入查阅64卦卦象符号、卦序口诀与白话爻辞速查 阅读更多":
+      - /url: /zh/64-gua
+      - heading "64卦在线详解指南" [level=3]
+      - paragraph: 深入查阅64卦卦象符号、卦序口诀与白话爻辞速查
+      - text: 阅读更多
+      - img
+    - link "免费塔罗牌在线占卜 在线抽牌解读爱情复合、事业抉择与运势推演 阅读更多":
+      - /url: /zh/free-tarot-online
+      - heading "免费塔罗牌在线占卜" [level=3]
+      - paragraph: 在线抽牌解读爱情复合、事业抉择与运势推演
+      - text: 阅读更多
+      - img
+    - link "今日运签与每日一签 每天抽取一支专属指引签，分析今日运势吉凶与行事建议 阅读更多":
+      - /url: /zh/daily-sign
+      - heading "今日运签与每日一签" [level=3]
+      - paragraph: 每天抽取一支专属指引签，分析今日运势吉凶与行事建议
+      - text: 阅读更多
+      - img
+    - link "八字排盘（在线排盘系统） 输入生辰四柱，深度测算五行旺衰与大运流年 阅读更多":
+      - /url: /zh/bazi
+      - heading "八字排盘（在线排盘系统）" [level=3]
+      - paragraph: 输入生辰四柱，深度测算五行旺衰与大运流年
+      - text: 阅读更多
+      - img
+    - link "查看更多内容":
+      - /url: /zh/blog
+      - text: 查看更多内容
+      - img
+    - group:
+      - text: 常见梦境专题
+      - img
+  - navigation "移动端快捷导航":
+    - link "首页":
+      - /url: /zh
+      - img
+      - text: 首页
+    - link "开始":
+      - /url: /zh/ai-fortune
+      - img
+      - text: 开始
+    - link "运势":
+      - /url: /zh/ai-fortune-forecast
+      - img
+      - text: 运势
+    - link "对话":
+      - /url: /zh/chat
+      - img
+      - text: 对话
+    - link "我的":
+      - /url: /zh/profile
+      - img
+      - text: 我的
+  - region "Notifications alt+T"
+  - alert
+  - dialog "登录账户":
+    - button "×"
+    - heading "登录账户" [level=2]
+    - text: 邮箱 *
+    - textbox "邮箱 *":
+      - /placeholder: 请输入邮箱地址
+    - text: 密码 *
+    - textbox "密码 *":
+      - /placeholder: 请输入密码
+    - button "登录"
+    - text: 或
+    - paragraph:
+      - text: 还没有账户？
+      - button "立即注册"
+    - link "忘记密码？":
+      - /url: /auth/forgot-password
+    - paragraph:
+      - text: ✨ 注册即送1000积分！
+      - link "了解积分获取与使用规则":
+        - /url: /zh/credits/guide

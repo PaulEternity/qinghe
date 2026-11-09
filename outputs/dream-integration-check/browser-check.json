@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "checks": [
+    "表单与多选资料",
+    "一次提交保存并流式解读",
+    "生成期间锁定",
+    "同一梦境追问",
+    "修改与重置",
+    "390px 无横向溢出",
+    "未配置模型可重试",
+    "札记入口"
+  ],
+  "model_calls": 3,
+  "real_mysql": false,
+  "real_model": false,
+  "page_errors": []
+}

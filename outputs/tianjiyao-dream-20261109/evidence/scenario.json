@@ -1,0 +1,74 @@
+{
+  "browser": {
+    "mode": "connect",
+    "cdp_endpoint": "http://127.0.0.1:19329",
+    "target_id": "976CA4E745A2C1D0B0DABDD3BB98F2B4"
+  },
+  "start_url": {
+    "url": "https://tianjiyao.com/zh/dream"
+  },
+  "environment": {
+    "locale": "zh-CN",
+    "timezone": "Asia/Shanghai",
+    "service_workers": "allow"
+  },
+  "actions": [
+    {
+      "step_id": "ready",
+      "action": "wait_for",
+      "locator": {
+        "kind": "css",
+        "selector": "#dreamContent"
+      },
+      "state": "visible",
+      "timeout_ms": 20000
+    },
+    {
+      "step_id": "input",
+      "action": "fill",
+      "locator": {
+        "kind": "css",
+        "selector": "#dreamContent"
+      },
+      "value": {
+        "source": "literal",
+        "value": "梦见自己在学校找教室，一直找不到，最后听到铃声惊醒。"
+      }
+    },
+    {
+      "step_id": "submit",
+      "action": "click",
+      "locator": {
+        "kind": "role",
+        "role": "button",
+        "name": "分析梦境"
+      },
+      "timeout_ms": 10000
+    },
+    {
+      "step_id": "settle",
+      "action": "wait_for_timeout",
+      "duration_ms": 1200
+    }
+  ],
+  "capture": {
+    "after_each_step": [
+      "url"
+    ],
+    "at_end": [
+      "url",
+      "dom",
+      "accessibility",
+      "screenshot"
+    ],
+    "events": [
+      "network",
+      "page-errors"
+    ],
+    "network": {
+      "request_body": true,
+      "response_body": false,
+      "header_values": false
+    }
+  }
+}
