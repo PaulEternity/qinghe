@@ -37,6 +37,15 @@ npm start
 
 从压缩包解压到新目录后，先在该目录运行 `npm ci` 安装锁定依赖，再执行 `npm start`。
 
+### 服务器更新与重启（PM2）
+
+在已部署清和、且 PM2 进程名为 `qinghe` 的服务器上依次执行：
+
+```bash
+cd /root/qinghe && git pull origin master
+pm2 restart qinghe
+```
+
 ## 接入自己的模型
 
 1. 在工程目录将 `.env.example` 复制为 `.env`。
