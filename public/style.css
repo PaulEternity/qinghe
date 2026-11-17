@@ -111,3 +111,43 @@
 .tool-card .tool-emblem{width:42px;height:42px;border-radius:10px;color:var(--ink)}
 @media(max-width:900px){.tool-grid{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:14px}}
 @media(max-width:600px){.tool-card{padding:14px 6px 16px;gap:9px}.tool-card h3{font-size:16px}.tool-card p{font-size:12px}}
+
+/* 紫微盘用淡墨星轨作为中宫底图，星曜文字留在独立的浅色宫位。 */
+.ziwei-frame{container-type:inline-size;margin:20px 0}
+.ziwei-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:6px;border:1px solid #cad8cd;border-radius:12px;background:#e8eee5}
+.ziwei-center{grid-column:1/-1;display:grid;align-content:center;justify-items:center;min-height:124px;text-align:center;padding:14px;border:1px solid #c9d8cb;border-radius:8px;background:
+  radial-gradient(circle at 17% 24%,#789383 1px,transparent 2px),
+  radial-gradient(circle at 76% 20%,#789383 1px,transparent 2px),
+  radial-gradient(circle at 84% 63%,#789383 1px,transparent 2px),
+  radial-gradient(circle at 23% 77%,#789383 1px,transparent 2px),
+  repeating-radial-gradient(circle at center,transparent 0 23px,#8ba89642 24px 25px,transparent 26px 46px),
+  radial-gradient(ellipse at center,#fafbf6,#e5ede4);
+}
+.ziwei-center .section-label{color:#4d695a}
+.ziwei-center h4{margin:4px 0;font:24px/1.35 var(--serif)}
+.ziwei-center p{margin:0;font-size:12px}
+.ziwei-palace{min-width:0;padding:10px;background:#fafbf6;border-radius:7px;border:1px solid #d7e1d6;text-align:left;overflow-wrap:anywhere}
+.ziwei-palace--soul{border-color:#789783;background:#edf4e9}
+.ziwei-palace h5{display:flex;justify-content:space-between;gap:4px;margin:0 0 5px;font:16px/1.4 var(--serif);font-weight:bold}
+.ziwei-palace h5 span{color:#486c59}
+.ziwei-palace p{font-size:12px;line-height:1.5;color:#51675e;margin:3px 0 0}
+.ziwei-palace p:empty{display:none}
+.ziwei-palace .ziwei-stars{font-weight:650;color:var(--ink)}
+/* 可用宽度以结果区为准，避免桌面双栏挤压四宫。 */
+@container (min-width:620px){
+  .ziwei-board--complete{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .ziwei-board--complete .ziwei-center{grid-area:2/2/4/4}
+}
+
+/* 宫位以整块为点击范围，释义浮层独立于命盘网格。 */
+.ziwei-palace{position:relative}
+.ziwei-palace-open{appearance:none;border:0;padding:0;background:none;color:inherit;text-align:left}
+.ziwei-palace-open::after{content:"";position:absolute;inset:0;border-radius:7px}
+.ziwei-palace:hover,.ziwei-palace:focus-within{border-color:#789783;background:#f0f5eb}
+.ziwei-palace-open:focus-visible{outline:none}
+.ziwei-palace-open:focus-visible::after{outline:2px solid var(--ink);outline-offset:2px}
+.ziwei-explanation{position:fixed;inset:0;margin:auto;width:min(520px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;overscroll-behavior:contain;padding:20px;border:1px solid #bacdbd;border-radius:12px;background:var(--paper);color:var(--ink);box-shadow:0 12px 36px #243e3730}
+.ziwei-explanation::backdrop{background:#243e3733}
+.ziwei-explanation-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ziwei-explanation-head h4{margin:0;font:23px/1.3 var(--serif)}
+.ziwei-explanation h5{margin:16px 0 6px}
