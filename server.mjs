@@ -179,14 +179,21 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
         return json(res,200,await complete(result));
         } finally {pending.delete(record.id);}
       }
-      // 仅开放已知的 78 张本地 JPEG；不接受路径拼接或任意文件读取。
-      if(req.method==='GET'&&/^\/assets\/tarot\/rws\/rws-(?:[0-9]|[1-6][0-9]|7[0-7])\.jpg$/.test(path)) {
+      // 只开放 78 张牌图与铜钱两面的 WebP 和原始 JPEG，沿用原有图片链接。
+      if(req.method==='GET'&&/^\/assets\/(?:tarot\/rws\/rws-(?:[0-9]|[1-6][0-9]|7[0-7])|coins\/qianlong-(?:obverse|reverse))\.(?:jpg|webp)$/.test(path)) {
+        // 图片字节用于确定响应体长度，仅成功读取后才允许浏览器缓存。
         let image;
         try{image=await readFile(new URL(`./public${path}`,import.meta.url));}
-        catch(error){if(error.code==='ENOENT')return json(res,404,{error:'牌图不存在'});throw error;}
-        res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'public, max-age=86400'});return res.end(image);
+        catch(error){if(error.code==='ENOENT')return json(res,404,{error:'图片不存在'});throw error;}
+        // 静态图片允许浏览器和共享缓存直接复用七天。
+        res.writeHead(200,{
+          'Content-Type':path.endsWith('.webp')?'image/webp':'image/jpeg',
+          'Content-Length':image.length,
+          'Cache-Control':'public, max-age=604800'
+        });
+        return res.end(image);
       }
-      const files={'/':['index.html','text/html; charset=utf-8'],'/account.js':['account.js','text/javascript; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg'],'/assets/coins/qianlong-obverse.jpg':['assets/coins/qianlong-obverse.jpg','image/jpeg'],'/assets/coins/qianlong-reverse.jpg':['assets/coins/qianlong-reverse.jpg','image/jpeg']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/account.js':['account.js','text/javascript; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
       if(req.method==='GET'&&files[path]) {const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});return res.end(await readFile(new URL(`./public/${name}`,import.meta.url)));}
       json(res,404,{error:'页面不存在'});
     } catch(error) {

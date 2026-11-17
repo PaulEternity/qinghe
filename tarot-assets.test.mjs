@@ -1,4 +1,4 @@
-/** 韦特资源集成校验：核对 78 张真实文件、现有牌 ID、静态路由及安全边界。 */
+/** 图片资源集成校验：核对韦特牌原图、轻量牌图和铜钱的静态响应。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -19,11 +19,38 @@ test('韦特 78 张无缺失、重复或错序，文件内容与来源清单一�
  }
 });
 
-test('本机 HTTP 可读取全部牌图，越界编号与任意路径被拒绝',async()=>{
+test('牌图和铜钱的 WebP 可从静态路由读取并缓存，原始 JPEG 链接可用',async()=>{
  const server=createApp();server.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${server.address().port}`;
  try{
   const module=await fetch(base+'/tarot-images.js');assert.equal(module.status,200);
-  for(const card of manifest.cards){const response=await fetch(base+'/assets/tarot/rws/'+card.file);assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/image\/jpeg/);assert.equal(createHash('sha256').update(Buffer.from(await response.arrayBuffer())).digest('hex'),card.sha256);}
-  for(const path of ['/assets/tarot/rws/rws-78.jpg','/assets/tarot/rws/rws-00.jpg','/assets/tarot/rws/manifest.json','/assets/tarot/rws/%2e%2e%2f.env'])assert.equal((await fetch(base+path)).status,404);
+  /** 检查轻量图片响应实际传输 WebP 字节，并可直接复用七天。 */
+  async function checkWebp(path,originalSize){
+   const response=await fetch(base+path);
+   assert.equal(response.status,200,path);
+   assert.equal(response.headers.get('content-type'),'image/webp',path);
+   assert.equal(response.headers.get('cache-control'),'public, max-age=604800',path);
+   // 使用 HTTP 响应体的字节数核对实际缩减幅度。
+   const bytes=Buffer.from(await response.arrayBuffer());
+   assert.equal(bytes.toString('ascii',8,12),'WEBP',path);
+   assert.ok(bytes.length>12&&bytes.length<originalSize/2,path);
+  }
+  for(const card of manifest.cards){
+   const path='/assets/tarot/rws/'+card.file;
+   const response=await fetch(base+path);
+   assert.equal(response.status,200);
+   assert.equal(response.headers.get('content-type'),'image/jpeg');
+   const original=Buffer.from(await response.arrayBuffer());
+   assert.equal(createHash('sha256').update(original).digest('hex'),card.sha256);
+   await checkWebp(path.replace(/\.jpg$/,'.webp'),original.length);
+  }
+  const css=await (await fetch(base+'/style.css')).text();
+  for(const face of ['obverse','reverse']){
+   const path=`/assets/coins/qianlong-${face}`;
+   assert.ok(css.includes(`url('${path}.webp')`));
+   const original=await fetch(base+path+'.jpg');
+   assert.equal(original.status,200);
+   await checkWebp(path+'.webp',(await original.arrayBuffer()).byteLength);
+  }
+  for(const path of ['/assets/tarot/rws/rws-78.jpg','/assets/tarot/rws/rws-00.jpg','/assets/tarot/rws/rws-78.webp','/assets/tarot/rws/manifest.json','/assets/tarot/rws/%2e%2e%2f.env','/assets/coins/other.webp'])assert.equal((await fetch(base+path)).status,404);
  }finally{await new Promise(resolve=>server.close(resolve));}
 });

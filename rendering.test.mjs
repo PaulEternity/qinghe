@@ -18,7 +18,9 @@ test('六爻、紫微与塔罗新盘渲染，以及旧札记缺字段兼容',()=
  const l=render(prepare({...base,tool:'liuyao',castMode:'manual',lineValues:[7,7,7,7,7,7],castTime:'1986-05-29T00:00'}).facts);assert.match(l,/乾为天/);assert.match(l,/甲子/);assert.match(l,/玄武/);assert.match(l,/戌、亥/);assert.match(l,/用神/);assert.match(l,/应期/);assert.match(l,/吉凶倾向/);
  const z=render(prepare({...base,tool:'ziwei'}).facts);assert.match(z,/命宫/);assert.match(z,/身宫/);assert.match(z,/2026-10-22/);
  const tarot=prepare({...base,tool:'tarot',spread:'celtic'}).facts;assert.equal((render(tarot).match(/data-flip=/g)||[]).length,10);assert.match(render(tarot,{revealed:[0]}),new RegExp(tarot.cards[0].name));
- const legacy={cards:[{position:'建议',name:'星星',orientation:'正位'}]};assert.match(render(legacy,{answer:'旧回答'}),/星星/);
+ const legacy={cards:[{position:'建议',name:'星星',orientation:'逆位'}]};
+ // 仅凭牌名的旧札记也应展示轻量图，逆位样式继续作用于牌面。
+ assert.match(render(legacy,{answer:'旧回答'}),/class="tarot-artwork is-reversed" src="\/assets\/tarot\/rws\/rws-17\.webp"/);
  const oldZiwei={ziwei:{fiveElementsClass:'水二局',palaces:[{name:'命宫',earthlyBranch:'子',majorStars:[{name:'紫微'}],minorStars:['文昌']}]}};assert.match(render(oldZiwei),/文昌/);
 });
 
