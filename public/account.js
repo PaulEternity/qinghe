@@ -4,21 +4,28 @@ export function showAccount(user, admin = false) {
   document.querySelector('#admin-link').hidden = !admin;
 }
 
+/** 通知其它标签页刷新登录状态，并用新会话打开目标页面。 */
 export function accountChanged(target = '#home') {
   localStorage.setItem('qinghe.account.changed', String(Date.now()) + Math.random());
-  location.hash = target;
+  // 先更新地址且不触发 hashchange，防止旧页面在刷新前消费登录待恢复的答卷。
+  if (location.hash !== target) window.history.pushState(null, '', target);
   location.reload();
 }
 
-export async function accountPage(main, mode) {
+/** 渲染普通账号登录或注册，允许完成登录后回到等待保存的知己测评。 */
+export async function accountPage(main, mode, resumeQuiz) {
   main.innerHTML = '<section class="panel"><h2>我的账号</h2><p>正在检查登录状态…</p></section>';
   const hash = location.hash;
+  // 从已知路由接收测评 ID，只拼本地哈希，登录与注册切换时都带上它。
+  const quiz = /^[a-z-]+$/.test(resumeQuiz ?? '') ? resumeQuiz : null;
+  const returnTo = quiz ? `#zhiji/${quiz}` : '#home';
   try {
     const response = await fetch('/api/account/status'), status = await response.json();
     if (!response.ok) throw new Error(status.error || '无法读取登录状态');
     if (location.hash !== hash) return;
     showAccount(status.user, status.admin);
-    if (status.user || status.admin) {
+    if (quiz && status.user) { location.hash = returnTo; return; }
+    if (status.user || (status.admin && !quiz)) {
       const profile = status.user ? `<section class="panel account-panel"><h3>每日运势</h3><p class="help">补充出生日期（性别可选），即可在首页看到你的专属每日运势。出生日期只用于本地排盘，不参与其它测算。</p><form id="profile-form"><label for="profile-birthday">出生日期（公历）</label><input id="profile-birthday" name="birthday" type="date" min="1900-01-01" max="2100-12-31" value="${status.user.birthday || ''}" required><label for="profile-gender">性别（可选）</label><select id="profile-gender" name="gender"><option value="">不填</option><option value="男"${status.user.gender === '男' ? ' selected' : ''}>男</option><option value="女"${status.user.gender === '女' ? ' selected' : ''}>女</option></select><div class="form-actions"><button class="primary">保存</button></div><p role="status"></p></form></section>` : '';
       main.innerHTML = `<div class="page-head"><h2>我的账号</h2></div><section class="panel account-panel"><p>当前账号：<strong id="current-username"></strong></p><p>${status.admin ? '管理员身份已验证，可进入管理页面修改 AI 访问码。' : '札记仅属于你的账号。使用 AI 时仍需验证管理员提供的六位访问码。'}</p><a class="secondary" href="${status.admin ? '#admin' : '#history'}">${status.admin ? '进入管理页面' : '查看我的札记'}</a><button class="quiet" id="user-logout">退出登录</button><p role="status"></p></section>${profile}`;
       document.querySelector('#current-username').textContent = status.admin ? 'admin' : status.user.username;
@@ -46,7 +53,8 @@ export async function accountPage(main, mode) {
       return;
     }
     const registering = mode === 'register';
-    main.innerHTML = `<div class="page-head"><h2>${registering ? '注册账号' : '用户登录'}</h2><p>登录后生成和保存属于自己的札记。</p></div><section class="panel account-panel"><form id="user-form"><label for="user-username">用户名（3—32 位字母、数字或下划线）</label><input id="user-username" name="username" autocomplete="username" pattern="[A-Za-z0-9_]{3,32}" minlength="3" maxlength="32" required><label for="user-password">密码（12—128 位）</label><input id="user-password" name="password" type="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="12" maxlength="128" required>${registering ? '<label for="user-confirm">再次输入密码</label><input id="user-confirm" name="confirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>' : ''}<div class="form-actions"><button class="primary">${registering ? '注册并登录' : '登录'}</button><a href="${registering ? '#account' : '#account/register'}">${registering ? '已有账号，去登录' : '没有账号，去注册'}</a></div><p role="status"></p></form></section>`;
+    const switchAccountMode = quiz ? `#account/${registering ? 'login' : 'register'}/zhiji/${quiz}` : registering ? '#account' : '#account/register';
+    main.innerHTML = `<div class="page-head"><h2>${registering ? '注册账号' : '用户登录'}</h2><p>登录后生成和保存属于自己的札记。</p></div><section class="panel account-panel"><form id="user-form"><label for="user-username">用户名（3—32 位字母、数字或下划线）</label><input id="user-username" name="username" autocomplete="username" pattern="[A-Za-z0-9_]{3,32}" minlength="3" maxlength="32" required><label for="user-password">密码（12—128 位）</label><input id="user-password" name="password" type="password" autocomplete="${registering ? 'new-password' : 'current-password'}" minlength="12" maxlength="128" required>${registering ? '<label for="user-confirm">再次输入密码</label><input id="user-confirm" name="confirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required>' : ''}<div class="form-actions"><button class="primary">${registering ? '注册并登录' : '登录'}</button><a href="${switchAccountMode}">${registering ? '已有账号，去登录' : '没有账号，去注册'}</a></div><p role="status"></p></form></section>`;
     const form = document.querySelector('#user-form');
     form.onsubmit = async event => {
       event.preventDefault();
@@ -58,7 +66,7 @@ export async function accountPage(main, mode) {
         const result = await fetch(`/api/account/${registering ? 'register' : 'login'}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
         const data = await result.json();
         if (!result.ok) throw new Error(data.error || '登录失败');
-        accountChanged(data.admin ? '#admin' : '#home');
+        accountChanged(data.admin ? '#admin' : returnTo);
       } catch (error) { output.textContent = error.message; }
       finally { button.disabled = false; }
     };

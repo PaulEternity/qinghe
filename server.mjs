@@ -2,7 +2,7 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { askModel } from './model.ts';
 export { askModel } from './model.ts';
 import { prepare, tools } from './engine.mjs';
@@ -12,6 +12,7 @@ import { calculateDailyFortune } from './daily-fortune.ts';
 import { AccessControl, openModelKey } from './access.mjs';
 import { UserAccounts } from './accounts.mjs';
 import { deploymentConfig } from './deployment.mjs';
+import { ZHIJI_QUIZZES, ZHIJI_QUIZ_VERSION, evaluateZhijiQuiz } from './public/zhiji-quizzes.js';
 
 /** 返回 JSON，避免缓存带出生信息与对话的响应。 */
 function json(res,status,data) { res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(data)); }
@@ -94,6 +95,25 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
           if(!req.headers['content-type']?.startsWith('application/json'))return json(res,415,{error:'需要 JSON 请求'});
           const input=await body(req);
           if(!input||typeof input!=='object')throw new Error('请求参数无效');
+          if(path==='/api/notes/zhiji') {
+            if(input.quizVersion!==ZHIJI_QUIZ_VERSION)return json(res,409,{error:'题库已更新，请重新作答后保存'});
+            // 查找服务端题库和完整答卷，客户端提交的结果文案不参与计分。
+            const quiz=ZHIJI_QUIZZES.find(item=>item.id===input.quizId);
+            const outcome=quiz&&evaluateZhijiQuiz(quiz,input.answers);
+            if(!outcome||typeof input.attemptId!=='string'||!/^[a-f0-9]{32}$/.test(input.attemptId))throw new Error('测评答卷无效，请重新作答');
+            // 按账号和答卷标识算出固定札记 ID，同一次提交重试时沿用已有记录。
+            const id='zhiji-'+createHash('sha256').update(JSON.stringify([userId,quiz.id,input.attemptId])).digest('hex');
+            const created=new Date().toISOString();
+            // 保存当时的结果和题数快照，逐题答案仅用于这次计分。
+            const facts={zhiji:{quizId:quiz.id,quizVersion:ZHIJI_QUIZ_VERSION,questionCount:quiz.questions.length,...outcome}};
+            const record={id,createdAt:created,schemaVersion:2,tool:'zhiji',title:'知己测评',question:quiz.title,facts};
+            try {
+              const note=await store.insert({id,created,record,answer:'',history:[],revealed:[],configured:false},userId);
+              return json(res,200,{note});
+            } catch {
+              return json(res,503,{error:'测评结果保存失败，请稍后重试'});
+            }
+          }
           if(path==='/api/notes/import') {
             if(!Array.isArray(input.notes)||input.notes.length>60)throw new Error('导入记录无效，每次最多 60 条');
             // 先验证整批格式；数据库中途失败时可安全重试，按 ID 去重。
@@ -112,7 +132,7 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
           if(path==='/api/notes/reveal') {
             const note=await store.get(input.id,userId);if(!note)throw new Error('札记不存在，请刷新');
             const count=note.record.facts?.cards?.length||0;
-            if(!Array.isArray(input.revealed)||input.revealed.some(i=>!Number.isInteger(i)||i<0||i>=count))throw new Error('翻牌参数无效');
+            if(note.record.tool==='zhiji'||!Array.isArray(input.revealed)||input.revealed.some(i=>!Number.isInteger(i)||i<0||i>=count))throw new Error('翻牌参数无效');
             note.revealed=[...new Set(input.revealed)];return json(res,200,{note:await store.save(note,userId)});
           }
         }
@@ -139,6 +159,7 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
           else {note=await store.get(record.id,userId);if(!note)throw new Error('札记不存在，请先生成盘面');record=note.record;}
         }
         if(path==='/api/chart')return json(res,200,{record,note});
+        if(record.tool==='zhiji')throw new Error('请在札记中查看已保存的测评结果');
         if(input.image&&(record.tool!=='palm'||typeof input.image!=='string'||input.image.length>4_200_000||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(input.image)))throw new Error('图片参数无效');
         let history=input.history||[];
         if(note) {

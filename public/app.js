@@ -3,7 +3,7 @@ import { GLOSS } from './gloss.js';
 import { TAROT_IMAGES } from './tarot-images.js';
 import { accessFetch, adminPage } from './access.js';
 import { accountPage, showAccount } from './account.js';
-import { showZhiji } from './zhiji.js';
+import { renderZhijiResult, showZhiji } from './zhiji.js';
 const main=document.querySelector('#main');
 const STORAGE='qinghe.readings.v1';
 let tools={},current=null,records=[],busy=false,routeVersion=0,pendingImage=null,activeController=null,accountUser=null;
@@ -217,6 +217,12 @@ function dreamHTML(record){
 }
 /** 展示原盘及翻牌状态；没有 Key 时仍可保存、查看全部计算事实。 */
 function renderResult(target){
+ // 知己札记只展示落库时的快照，使用自己的结果卡和返回入口。
+ if(current.record.tool==='zhiji'){
+  target.innerHTML=`<div class="section-label">知己测评</div><h3>${esc(current.record.question)}</h3><div data-zhiji-result></div><div class="toolbar"><a class="secondary" href="#zhiji">返回知己</a></div>`;
+  renderZhijiResult(target.querySelector('[data-zhiji-result]'),current.record.facts.zhiji);
+  return;
+ }
  // 梦境展示用户陈述而非“计算盘面”，其他工具沿用原有结果内容。
  const isDream=current.record.tool==='dream';
  const canInterpret=current.record.tool!=='palm'||pendingImage||current.answer;
@@ -286,7 +292,7 @@ function exportText(r){return `${r.record.title}\n${r.record.question}\n${new Da
 function download(name,text){const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 /** 呈现札记与显式删除，空状态给出开始入口。 */
 async function history(){
- const version=routeVersion;try{await loadRecords();if(version!==routeVersion)return;main.innerHTML=`<div class="page-head"><span class="section-label">留给自己的记录</span><h2>我的札记</h2><p class="help">盘面、解读和追问保存在本机 MySQL；清理浏览器不会删除数据库记录。旧浏览器札记可手动导入，同 ID 不覆盖数据库记录。</p><div class="toolbar"><button class="secondary" id="export-all">导出全部</button><button class="secondary" id="clear-all">清空札记</button><button class="secondary" id="import-old">导入旧浏览器札记</button></div><div id="history-error" role="alert"></div></div><div class="history-list">${records.length?records.map(r=>`<article class="history-row"><span class="glyph">${esc(tools[r.record.tool].icon)}</span><div class="info"><h3><a href="#note/${esc(r.id)}">${esc(r.record.question)}</a></h3><small>${esc(r.record.title)} · ${esc(new Date(r.created).toLocaleString('zh-CN'))}</small></div><a class="secondary" href="#note/${esc(r.id)}">查看</a><button class="quiet delete-note" data-id="${esc(r.id)}">删除</button></article>`).join(''):'<div class="empty"><h3>这里还没有札记。</h3><a href="#home">开始探索 ↗</a></div>'}</div>`;
+ const version=routeVersion;try{await loadRecords();if(version!==routeVersion)return;main.innerHTML=`<div class="page-head"><span class="section-label">留给自己的记录</span><h2>我的札记</h2><p class="help">盘面、解读、追问和已保存的测评结果保存在 MySQL；清理浏览器不会删除数据库记录。旧浏览器札记可手动导入，同 ID 不覆盖数据库记录。</p><div class="toolbar"><button class="secondary" id="export-all">导出全部</button><button class="secondary" id="clear-all">清空札记</button><button class="secondary" id="import-old">导入旧浏览器札记</button></div><div id="history-error" role="alert"></div></div><div class="history-list">${records.length?records.map(r=>`<article class="history-row"><span class="glyph">${esc(r.record.tool==='zhiji'?'知':tools[r.record.tool]?.icon||'记')}</span><div class="info"><h3><a href="#note/${esc(r.id)}">${esc(r.record.question)}</a></h3><small>${esc(r.record.title)} · ${esc(new Date(r.created).toLocaleString('zh-CN'))}</small></div><a class="secondary" href="#note/${esc(r.id)}">查看</a><button class="quiet delete-note" data-id="${esc(r.id)}">删除</button></article>`).join(''):'<div class="empty"><h3>这里还没有札记。</h3><a href="#home">开始探索 ↗</a></div>'}</div>`;
  document.querySelector('#export-all').onclick=()=>download('清和札记.txt',records.map(exportText).join('\n\n────────────\n\n'));
  document.querySelector('#clear-all').onclick=async()=>{if(confirm('确认清空 MySQL 中的全部札记？此操作无法恢复，请先导出备份。'))try{await api('/api/notes/clear',{confirm:'delete-all'});await history();}catch(e){alert(e.message);}};
  document.querySelector('#import-old').onclick=async()=>{try{const notes=JSON.parse(localStorage.getItem(STORAGE)||'[]');if(!Array.isArray(notes)||!notes.length)return alert('当前浏览器没有旧札记。');await api('/api/notes/import',{notes});await history();alert('已导入 MySQL；浏览器原始数据仍保留。');}catch(e){document.querySelector('#history-error').textContent=e.message;}};
@@ -294,7 +300,7 @@ async function history(){
  }catch(e){if(version===routeVersion)main.textContent='札记读取失败：'+e.message;}
 }
 /** 哈希路由，保持本地启动无构建依赖。 */
-async function route(){activeController?.abort();activeController=null;pendingImage=null;busy=false;routeVersion++;const version=routeVersion;const [page,id]=location.hash.slice(1).split('/');if(page==='account')await accountPage(main,id);else if(page==='admin')await adminPage(main);else if(page==='history')history();else if(page==='reading')reading(id);else if(page==='zhiji')showZhiji(main,id);else if(page==='note'){try{await loadRecords();if(version!==routeVersion)return;}catch(e){if(version===routeVersion)main.textContent=e.message;return;}current=records.find(r=>r.id===id);if(!current)return history();main.innerHTML='<div class="page-head"><a class="breadcrumb" href="#history">我的札记 / 解读详情</a></div><section class="panel" id="result"></section>';renderResult(document.querySelector('#result'));}else home();window.scrollTo(0,0);}
+async function route(){activeController?.abort();activeController=null;pendingImage=null;busy=false;routeVersion++;const version=routeVersion;const [page,id,source,quizId]=location.hash.slice(1).split('/');if(page==='account')await accountPage(main,id,source==='zhiji'?quizId:undefined);else if(page==='admin')await adminPage(main);else if(page==='history')history();else if(page==='reading')reading(id);else if(page==='zhiji')showZhiji(main,id);else if(page==='note'){try{await loadRecords();if(version!==routeVersion)return;}catch(e){if(version===routeVersion)main.textContent=e.message;return;}current=records.find(r=>r.id===id);if(!current)return history();main.innerHTML='<div class="page-head"><a class="breadcrumb" href="#history">我的札记 / 解读详情</a></div><section class="panel" id="result"></section>';renderResult(document.querySelector('#result'));}else home();window.scrollTo(0,0);}
 /** 启动并提示模型连接状态；网络错误可重试，不显示假数据。 */
 async function init(){try{const status=await api('/api/status');tools=status.tools;accountUser=status.user;if(status.storage!=='mysql')throw new Error('MySQL 未接入');showAccount(status.user,status.admin);if(status.user)await loadRecords();document.querySelector('#model-status').textContent=status.configured?'已检测到模型配置。实际连通性会在解读时验证。':'尚未配置模型。你仍可以使用本地排盘和抽牌。';route();}catch{main.innerHTML='<div class="empty"><h3>无法连接本地服务</h3><p>请确认 npm start 正在运行，然后刷新页面。</p></div>';}}
 window.addEventListener('hashchange',route);document.querySelector('#settings-button').onclick=()=>document.querySelector('#settings').showModal();init();
