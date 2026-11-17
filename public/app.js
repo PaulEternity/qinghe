@@ -3,6 +3,7 @@ import { GLOSS } from './gloss.js';
 import { TAROT_IMAGES } from './tarot-images.js';
 import { accessFetch, adminPage } from './access.js';
 import { accountPage, showAccount } from './account.js';
+import { showZhiji } from './zhiji.js';
 const main=document.querySelector('#main');
 const STORAGE='qinghe.readings.v1';
 let tools={},current=null,records=[],busy=false,routeVersion=0,pendingImage=null,activeController=null,accountUser=null;
@@ -293,7 +294,7 @@ async function history(){
  }catch(e){if(version===routeVersion)main.textContent='札记读取失败：'+e.message;}
 }
 /** 哈希路由，保持本地启动无构建依赖。 */
-async function route(){activeController?.abort();activeController=null;pendingImage=null;busy=false;routeVersion++;const version=routeVersion;const [page,id]=location.hash.slice(1).split('/');if(page==='account')await accountPage(main,id);else if(page==='admin')await adminPage(main);else if(page==='history')history();else if(page==='reading')reading(id);else if(page==='note'){try{await loadRecords();if(version!==routeVersion)return;}catch(e){if(version===routeVersion)main.textContent=e.message;return;}current=records.find(r=>r.id===id);if(!current)return history();main.innerHTML='<div class="page-head"><a class="breadcrumb" href="#history">我的札记 / 解读详情</a></div><section class="panel" id="result"></section>';renderResult(document.querySelector('#result'));}else home();window.scrollTo(0,0);}
+async function route(){activeController?.abort();activeController=null;pendingImage=null;busy=false;routeVersion++;const version=routeVersion;const [page,id]=location.hash.slice(1).split('/');if(page==='account')await accountPage(main,id);else if(page==='admin')await adminPage(main);else if(page==='history')history();else if(page==='reading')reading(id);else if(page==='zhiji')showZhiji(main,id);else if(page==='note'){try{await loadRecords();if(version!==routeVersion)return;}catch(e){if(version===routeVersion)main.textContent=e.message;return;}current=records.find(r=>r.id===id);if(!current)return history();main.innerHTML='<div class="page-head"><a class="breadcrumb" href="#history">我的札记 / 解读详情</a></div><section class="panel" id="result"></section>';renderResult(document.querySelector('#result'));}else home();window.scrollTo(0,0);}
 /** 启动并提示模型连接状态；网络错误可重试，不显示假数据。 */
 async function init(){try{const status=await api('/api/status');tools=status.tools;accountUser=status.user;if(status.storage!=='mysql')throw new Error('MySQL 未接入');showAccount(status.user,status.admin);if(status.user)await loadRecords();document.querySelector('#model-status').textContent=status.configured?'已检测到模型配置。实际连通性会在解读时验证。':'尚未配置模型。你仍可以使用本地排盘和抽牌。';route();}catch{main.innerHTML='<div class="empty"><h3>无法连接本地服务</h3><p>请确认 npm start 正在运行，然后刷新页面。</p></div>';}}
 window.addEventListener('hashchange',route);document.querySelector('#settings-button').onclick=()=>document.querySelector('#settings').showModal();init();

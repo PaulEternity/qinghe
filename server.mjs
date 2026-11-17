@@ -193,7 +193,7 @@ export function createApp({model=askModel,store,deployment=deploymentConfig(),au
         });
         return res.end(image);
       }
-      const files={'/':['index.html','text/html; charset=utf-8'],'/account.js':['account.js','text/javascript; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
+      const files={'/':['index.html','text/html; charset=utf-8'],'/account.js':['account.js','text/javascript; charset=utf-8'],'/access.js':['access.js','text/javascript; charset=utf-8'],'/app.js':['app.js','text/javascript; charset=utf-8'],'/gloss.js':['gloss.js','text/javascript; charset=utf-8'],'/tarot-images.js':['tarot-images.js','text/javascript; charset=utf-8'],'/zhiji.js':['zhiji.js','text/javascript; charset=utf-8'],'/zhiji-quizzes.js':['zhiji-quizzes.js','text/javascript; charset=utf-8'],'/style.css':['style.css','text/css; charset=utf-8'],'/coin.jpg':['coin.jpg','image/jpeg']};
       if(req.method==='GET'&&files[path]) {const [name,type]=files[path];res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-cache'});return res.end(await readFile(new URL(`./public/${name}`,import.meta.url)));}
       json(res,404,{error:'页面不存在'});
     } catch(error) {
