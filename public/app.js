@@ -58,7 +58,7 @@ function bindCoinCast(form){
  });
 }
 /** 呈现首页与所有真实功能入口。 */
-function home(){main.replaceChildren(document.querySelector('#home-template').content.cloneNode(true));document.querySelector('#tool-grid').innerHTML=Object.entries(tools).filter(([,t])=>!t.legacy).map(([id,t])=>`<a class="tool-card" href="#reading/${id}"><span class="glyph">${esc(t.icon)}</span><div><h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p></div><span class="arrow">↗</span></a>`).join('');renderDailyFortune();}
+function home(){main.replaceChildren(document.querySelector('#home-template').content.cloneNode(true));document.querySelector('#tool-grid').innerHTML=Object.entries(tools).filter(([,t])=>!t.legacy).map(([id,t])=>`<a class="tool-card" href="#reading/${id}"><span class="glyph tool-emblem" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><use href="#tool-icon-${esc(id)}"></use></svg></span><div><h3>${esc(t.name)}</h3><p>${esc(t.desc)}</p></div><span class="arrow">↗</span></a>`).join('');renderDailyFortune();}
 /** 每日运势的盘面卡片：日主、今日十神、民俗幸运项与一段非确定性提示。 */
 function dailyFortuneHTML(f){
  return `<div class="daily-head"><span class="section-label">每日运势</span><span class="daily-date">${esc(f.lunarDate)} · ${esc(f.yearGanZhi)}年 ${esc(f.monthGanZhi)}月 ${esc(f.dayGanZhi)}日</span></div><div class="pillars"><div class="pillar"><small>你的日主</small><b>${esc(f.dayMaster)}</b><span>${esc(f.dayMasterElement)}</span></div><div class="pillar"><small>今日十神</small><b>${esc(f.relation)}</b><span>${esc(f.todayElement)}气</span></div><div class="pillar"><small>幸运色 · 数字 · 方位</small><b>${esc(f.luckyColor)}</b><span>${esc(f.luckyNumbers)} · ${esc(f.luckyDirection)}</span></div><div class="pillar"><small>可留意五行</small><b>${esc(f.dayMasterElement)}</b><span>${esc(f.favorable)}</span></div></div><p class="daily-guidance">${esc(f.guidance)}</p><p class="help">${esc(f.rules.note)}</p>`;
@@ -279,7 +279,7 @@ async function runInterpretation(){
  // 结果区重试也要锁定梦境表单，避免生成过程中修改资料却仍显示上一份结果。
  const dreamFields=current.record.tool==='dream'?document.querySelector('#dream-fields'):null;
  if(dreamFields)dreamFields.disabled=true;
- try{const data=await streamApi('/api/interpret',{record:current.record,image:pendingImage||undefined},text=>{if(version===routeVersion)answer.textContent+=text;});if(version!==routeVersion)return;if(!data.answer)throw new Error(current.record.tool==='dream'?'尚未配置模型，请打开顶部“模型设置”；梦境已保存在札记。':'尚未配置模型，请打开顶部“模型设置”；盘面已保存在札记。');current=data.note;saveRecord();renderResult(target);}catch(e){if(version===routeVersion){error.className='notice error';error.textContent=e.message;}}finally{if(dreamFields)dreamFields.disabled=false;if(version===routeVersion){busy=false;button.disabled=false;button.textContent=current.record.tool==='dream'?'分析梦境':'结合此盘 AI 解读';}}
+ try{const data=await streamApi('/api/interpret',{record:current.record,image:pendingImage||undefined},text=>{if(version===routeVersion)answer.textContent+=text;});if(version!==routeVersion)return;if(!data.answer)throw new Error(current.record.tool==='dream'?'尚未配置模型，请联系管理员；梦境已保存在札记。':'尚未配置模型，请联系管理员；盘面已保存在札记。');current=data.note;saveRecord();renderResult(target);}catch(e){if(version===routeVersion){error.className='notice error';error.textContent=e.message;}}finally{if(dreamFields)dreamFields.disabled=false;if(version===routeVersion){busy=false;button.disabled=false;button.textContent=current.record.tool==='dream'?'分析梦境':'结合此盘 AI 解读';}}
 }
 /** 追问携带原盘 ID 和已完成对话，不重新抽牌或生成新卦。 */
 async function followup(event){
@@ -301,9 +301,9 @@ async function history(){
 }
 /** 哈希路由，保持本地启动无构建依赖。 */
 async function route(){activeController?.abort();activeController=null;pendingImage=null;busy=false;routeVersion++;const version=routeVersion;const [page,id,source,quizId]=location.hash.slice(1).split('/');if(page==='account')await accountPage(main,id,source==='zhiji'?quizId:undefined);else if(page==='admin')await adminPage(main);else if(page==='history')history();else if(page==='reading')reading(id);else if(page==='zhiji')showZhiji(main,id);else if(page==='note'){try{await loadRecords();if(version!==routeVersion)return;}catch(e){if(version===routeVersion)main.textContent=e.message;return;}current=records.find(r=>r.id===id);if(!current)return history();main.innerHTML='<div class="page-head"><a class="breadcrumb" href="#history">我的札记 / 解读详情</a></div><section class="panel" id="result"></section>';renderResult(document.querySelector('#result'));}else home();window.scrollTo(0,0);}
-/** 启动并提示模型连接状态；网络错误可重试，不显示假数据。 */
-async function init(){try{const status=await api('/api/status');tools=status.tools;accountUser=status.user;if(status.storage!=='mysql')throw new Error('MySQL 未接入');showAccount(status.user,status.admin);if(status.user)await loadRecords();document.querySelector('#model-status').textContent=status.configured?'已检测到模型配置。实际连通性会在解读时验证。':'尚未配置模型。你仍可以使用本地排盘和抽牌。';route();}catch{main.innerHTML='<div class="empty"><h3>无法连接本地服务</h3><p>请确认 npm start 正在运行，然后刷新页面。</p></div>';}}
-window.addEventListener('hashchange',route);document.querySelector('#settings-button').onclick=()=>document.querySelector('#settings').showModal();init();
+/** 启动时加载工具、账号与札记，再进入当前路由。 */
+async function init(){try{const status=await api('/api/status');tools=status.tools;accountUser=status.user;if(status.storage!=='mysql')throw new Error('MySQL 未接入');showAccount(status.user,status.admin);if(status.user)await loadRecords();route();}catch{main.innerHTML='<div class="empty"><h3>无法连接本地服务</h3><p>请确认 npm start 正在运行，然后刷新页面。</p></div>';}}
+window.addEventListener('hashchange',route);init();
 
 window.addEventListener('account-required',()=>{activeController?.abort();current=null;records=[];pendingImage=null;document.querySelector('#count').textContent='0';showAccount(null);location.hash='#account';});
 window.addEventListener('storage',event=>{if(event.key==='qinghe.account.changed')location.reload();});

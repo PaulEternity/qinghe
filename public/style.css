@@ -97,3 +97,7 @@
 .zhiji-age span{margin-left:8px;font-size:22px}
 /* 小屏让新增入口与其它导航同排换行，避免把链接文字逐字折行。 */
 @media(max-width:600px){header nav{flex:0 0 100%;flex-wrap:wrap}header nav>a,header nav>button{white-space:nowrap}}
+
+/* 首页徽标采用统一的绿调、描边和尺寸，卡片文字可独立换行。 */
+.tool-card .tool-emblem{flex:0 0 44px;width:44px;height:44px;border-radius:10px;color:var(--ink)}
+.tool-emblem svg{width:27px;height:27px;display:block}

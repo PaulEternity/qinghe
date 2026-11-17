@@ -53,6 +53,12 @@ test('首页替换 Offer 入口，星座表单提供两份完整选项与四元�
  const context=vm.createContext({main,document,tools,current:null,pendingImage:null,renderDailyFortune:()=>{}});
  vm.runInContext(escapeDeclaration+'\n'+functions+'\n'+templates+'\nhome();reading("zodiac");',context);
  assert.match(grid.innerHTML,/#reading\/zodiac/);assert.ok(!grid.innerHTML.includes('#reading/offer'));
+ // 首页每张卡引用一个实际存在的图标定义。
+ const html=fs.readFileSync(new URL('./public/index.html',import.meta.url),'utf8');
+ const icons=[...grid.innerHTML.matchAll(/<use href="#(tool-icon-[a-z]+)"/g)].map(([,id])=>id);
+ assert.equal(icons.length,10);
+ assert.equal(new Set(icons).size,10);
+ for(const id of icons)assert.ok(html.includes(`<symbol id="${id}"`),id);
  for(const id of ['signA','signB'])assert.match(main.innerHTML,new RegExp('id="'+id+'"'));
  assert.equal((main.innerHTML.match(/<option value="aries">/g)||[]).length,2);
  assert.equal((main.innerHTML.match(/<option value=/g)||[]).length,26);
