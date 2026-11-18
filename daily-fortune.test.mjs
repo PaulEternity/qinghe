@@ -30,6 +30,39 @@ test('每日运势：非法日期拒绝，多组生日均得到合法日主与�
   }
 });
 
+/** 用十个连续出生日期覆盖全部十神，验证同日稳定及跨月、跨年轮换。 */
+test('每日运势：每种十神三段寄语依次轮换，同一 UTC+8 日期保持一致', ({ mock }) => {
+  // 从北京时间 12 月 20 日零点开始，轮换会跨越月底和年底。
+  const firstDay = Date.parse('2026-12-20T00:00:00+08:00');
+  const dayMs = 86_400_000;
+  // 模拟各次查询的服务器时间，单位为毫秒。
+  let now = firstDay;
+  mock.method(Date, 'now', () => now);
+
+  // 分别记录已覆盖的十神及其所有轮换寄语，检查十种三十段都实际可选中。
+  const relations = new Set();
+  const allGuidance = new Set();
+  for (let day = 1; day <= 10; day++) {
+    const birthday = `2000-01-${String(day).padStart(2, '0')}`;
+    now = firstDay;
+    const first = calculateDailyFortune(birthday);
+    relations.add(first.relation);
+    now += dayMs - 1;
+    assert.equal(calculateDailyFortune(birthday).guidance, first.guidance);
+
+    for (const elapsedDays of [0, 10, 20, 30]) {
+      now = firstDay + elapsedDays * dayMs;
+      const result = calculateDailyFortune(birthday);
+      assert.equal(result.relation, first.relation);
+      assert.ok(result.guidance.trim());
+      allGuidance.add(result.guidance);
+      if (elapsedDays === 30) assert.equal(result.guidance, first.guidance);
+    }
+  }
+  assert.equal(relations.size, 10);
+  assert.equal(allGuidance.size, 30);
+});
+
 test('每日运势卡片：关键字段展示且危险文本转义', () => {
   const base = calculateDailyFortune('1997-05-20');
   const render = f => { const context = vm.createContext({ f }); vm.runInContext(esc + '\n' + htmlFn + '\nout=dailyFortuneHTML(f);', context); return context.out; };

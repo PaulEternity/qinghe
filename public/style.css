@@ -151,3 +151,13 @@
 .ziwei-explanation-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .ziwei-explanation-head h4{margin:0;font:23px/1.3 var(--serif)}
 .ziwei-explanation h5{margin:16px 0 6px}
+
+/* 解读的标题、段落和列表沿用结果区字体，单换行保留正文原有节奏。 */
+.ai-answer :is(p,h4,h5,ol,ul){margin:0 0 .7em}
+.ai-answer :is(h4,h5){margin-top:1em;font-weight:650;line-height:1.5}
+.ai-answer h4{font-size:1.18em}
+.ai-answer h5{font-size:1.05em}
+.ai-answer :is(ol,ul){padding-inline-start:1.65em}
+.ai-answer code{padding:.1em .3em;background:var(--wash);border-radius:3px}
+.ai-answer > :first-child{margin-top:0}
+.ai-answer > :last-child{margin-bottom:0}

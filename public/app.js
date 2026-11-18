@@ -7,7 +7,7 @@ import { renderZhijiResult, showZhiji } from './zhiji.js';
 const main=document.querySelector('#main');
 const STORAGE='qinghe.readings.v1';
 let tools={},current=null,records=[],busy=false,routeVersion=0,pendingImage=null,activeController=null,accountUser=null;
-/** 将外部文本转成安全 HTML，AI 回复始终用 textContent 展示。 */
+/** 将外部文本转义为可安全嵌入 HTML 的内容。 */
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /** 从 MySQL 加载全部札记；连接失败明确报错，不使用旧缓存冒充已保存。 */
 async function loadRecords(){const data=await api('/api/notes');records=data.notes;document.querySelector('#count').textContent=records.length;}
@@ -257,6 +257,73 @@ function dreamHTML(record){
  const rows=[['做梦日期',dream.dreamDate],['情感状态',dream.emotions],['背景信息',dream.context],['反复梦境',dream.recurringDream==='yes'?'最近反复出现':dream.recurringDream==='no'?'这次是偶发':''],['睡眠或身体线索',(dream.physiologyLabels||[]).join('、')],['结构补充',dream.structureHint]];
  return `<p class="dream-content">${esc(record.question)}</p><div class="gloss-section">${rows.filter(([,value])=>value).map(([label,value])=>glossItem(label,value)).join('')}</div><p class="help">以上是你提供的梦境资料。传统象义仅供文化联想，情绪联系供自我回看。</p>`;
 }
+/** 转义模型文本后，只将已识别的行内 Markdown 转成固定标签。 */
+function answerInlineHTML(text, preview){
+ // 末尾未闭合的粗体标记可能跨流式分片，预览暂时隐藏分隔符。
+ const markup=/`([^`]+)`|\*\*([^*]+)\*\*|(?<!\w)__([^_]+)__(?!\w)|(?<![\w*])\*([^*\s](?:[^*]*[^*\s])?)\*(?!\*)|(\*\*([^*]*)\*?|\*)$/g;
+ return esc(text).replace(markup,(match,code,bold,underscoreBold,emphasis,_unfinished,unfinishedText)=>{
+  if(code!==undefined)return `<code>${code}</code>`;
+  if(bold!==undefined||underscoreBold!==undefined)return `<strong>${bold??underscoreBold}</strong>`;
+  if(emphasis!==undefined)return `<em>${emphasis}</em>`;
+  return preview?unfinishedText??'':match;
+ });
+}
+/** 将解读的标题、段落和列表转成固定标签，兼容直接保存的旧纯文本。 */
+function answerHTML(text, preview=false){
+ const lines=String(text??'').split(/\r\n?|\n/);
+ // 普通文本累积为段落，同类列表项合并为一个列表。
+ const blocks=[],paragraph=[];
+ let listTag='';
+ const flushParagraph=()=>{
+  if(paragraph.length)blocks.push(`<p>${paragraph.splice(0).join('\n')}</p>`);
+ };
+ for(const [index,line] of lines.entries()){
+  const last=preview&&index===lines.length-1;
+  const item=/^ {0,3}(?:[-+*]|(\d{1,9})[.)])[ \t]+(.+)$/.exec(line);
+  const nextList=item?(item[1]?'ol':'ul'):'';
+  if(listTag&&listTag!==nextList){blocks.push(`</${listTag}>`);listTag='';}
+  if(item){
+   flushParagraph();
+   if(!listTag){
+    listTag=nextList;
+    const start=item[1]?Number(item[1]):1;
+    blocks.push(start===1?`<${listTag}>`:`<ol start="${start}">`);
+   }
+   blocks.push(`<li>${answerInlineHTML(item[2],last)}</li>`);
+   continue;
+  }
+  const heading=/^ {0,3}(#{1,6})[ \t]+(.+)$/.exec(line);
+  if(heading){
+   flushParagraph();
+   // 标题从解读区下一级开始，较深的 Markdown 标题统一作为小标题。
+   const tag=heading[1].length<=2?'h4':'h5';
+   blocks.push(`<${tag}>${answerInlineHTML(heading[2].replace(/[ \t]+#+[ \t]*$/,'').trim(),last)}</${tag}>`);
+  }else if(!line.trim()||(last&&/^ {0,3}#{1,6}[ \t]*$/.test(line))){
+   flushParagraph();
+  }else{
+   paragraph.push(answerInlineHTML(line,last));
+  }
+ }
+ if(listTag)blocks.push(`</${listTag}>`);
+ flushParagraph();
+ return blocks.join('');
+}
+/** 为一次流式解读创建预览回调，把分片拼接后按浏览器帧刷新。 */
+function createAnswerPreview(target,version){
+ // 保留本次回复的原始分片，确保跨分片的 Markdown 可以合并识别。
+ let text='',scheduled=false;
+ return chunk=>{
+  if(version!==routeVersion)return;
+  text+=chunk;
+  if(scheduled)return;
+  scheduled=true;
+  requestAnimationFrame(()=>{
+   scheduled=false;
+   // 结束后完整回复会替换预览节点，跳页也不再更新旧页面。
+   if(version===routeVersion&&target.isConnected)target.innerHTML=answerHTML(text,true);
+  });
+ };
+}
 /** 展示原盘及翻牌状态；没有 Key 时仍可保存、查看全部计算事实。 */
 function renderResult(target){
  // 知己札记只展示落库时的快照，使用自己的结果卡和返回入口。
@@ -269,8 +336,17 @@ function renderResult(target){
  const isDream=current.record.tool==='dream';
  const canInterpret=current.record.tool!=='palm'||pendingImage||current.answer;
  target.innerHTML=`<div class="section-label">${isDream?'本次梦境':'本次盘面'} · ${esc(current.record.id||current.id)}</div><h3>${isDream?'梦境记录':esc(current.record.question)}</h3>${isDream?dreamHTML(current.record):factsHTML(current.record)}<div class="answer-title">AI 解读</div><div class="ai-answer" id="answer"></div><div id="messages"></div><div class="toolbar"><button class="secondary" id="copy-reading">复制结果</button>${!current.answer&&canInterpret?`<button class="primary" id="interpret">${isDream?'分析梦境':'结合此盘 AI 解读'}</button>`:''}</div><p class="help">${isDream?'梦境及线索发送给清和配置的 AI，解读可继续追问。':'调用模型才会发送本次问题与盘面。默认简答，追问时继续说明。'}模型服务可能收费。</p><div id="interpret-error" role="alert"></div>${current.answer?`<form class="followup" id="followup"><label for="follow-question">${isDream?'围绕这次梦境继续追问':'围绕同一盘继续追问'}</label><textarea id="follow-question" required maxlength="4000"></textarea><button class="primary">发送追问</button><div id="follow-error" role="alert"></div></form>`:''}`;
- target.querySelector('#answer').textContent=current.answer||(isDream?'梦境已记录，可以开始分析。':'尚未调用模型。请先核对盘面，再开始解读。');
- for(const m of current.history){const el=document.createElement('div');el.className='message '+m.role;const label=document.createElement('small');label.textContent=m.role==='user'?'你的追问':'清和';const content=document.createElement('div');content.className='ai-answer';content.textContent=m.content;el.append(label,content);target.querySelector('#messages').append(el);}
+ const answer=target.querySelector('#answer');
+ if(current.answer)answer.innerHTML=answerHTML(current.answer);
+ else answer.textContent=isDream?'梦境已记录，可以开始分析。':'尚未调用模型。请先核对盘面，再开始解读。';
+ for(const m of current.history){
+  const el=document.createElement('div');el.className='message '+m.role;
+  const label=document.createElement('small');label.textContent=m.role==='user'?'你的追问':'清和';
+  const content=document.createElement('div');content.className='ai-answer';
+  if(m.role==='assistant')content.innerHTML=answerHTML(m.content);
+  else content.textContent=m.content;
+  el.append(label,content);target.querySelector('#messages').append(el);
+ }
  target.querySelector('#copy-reading').onclick=async()=>{try{await navigator.clipboard.writeText(exportText(current));alert('已复制');}catch{alert('复制失败，请手动选择结果文本。');}};
  // 保留原有 DOM 才能在同一张牌上播放背面到正面的连续翻转。
  let flipping=false;
@@ -321,12 +397,12 @@ async function runInterpretation(){
  // 结果区重试也要锁定梦境表单，避免生成过程中修改资料却仍显示上一份结果。
  const dreamFields=current.record.tool==='dream'?document.querySelector('#dream-fields'):null;
  if(dreamFields)dreamFields.disabled=true;
- try{const data=await streamApi('/api/interpret',{record:current.record,image:pendingImage||undefined},text=>{if(version===routeVersion)answer.textContent+=text;});if(version!==routeVersion)return;if(!data.answer)throw new Error(current.record.tool==='dream'?'尚未配置模型，请联系管理员；梦境已保存在札记。':'尚未配置模型，请联系管理员；盘面已保存在札记。');current=data.note;saveRecord();renderResult(target);}catch(e){if(version===routeVersion){error.className='notice error';error.textContent=e.message;}}finally{if(dreamFields)dreamFields.disabled=false;if(version===routeVersion){busy=false;button.disabled=false;button.textContent=current.record.tool==='dream'?'分析梦境':'结合此盘 AI 解读';}}
+ try{const data=await streamApi('/api/interpret',{record:current.record,image:pendingImage||undefined},createAnswerPreview(answer,version));if(version!==routeVersion)return;if(!data.answer)throw new Error(current.record.tool==='dream'?'尚未配置模型，请联系管理员；梦境已保存在札记。':'尚未配置模型，请联系管理员；盘面已保存在札记。');current=data.note;saveRecord();renderResult(target);}catch(e){if(version===routeVersion){error.className='notice error';error.textContent=e.message;}}finally{if(dreamFields)dreamFields.disabled=false;if(version===routeVersion){busy=false;button.disabled=false;button.textContent=current.record.tool==='dream'?'分析梦境':'结合此盘 AI 解读';}}
 }
 /** 追问携带原盘 ID 和已完成对话，不重新抽牌或生成新卦。 */
 async function followup(event){
  event.preventDefault();if(busy)return;const form=event.currentTarget,button=form.querySelector('button'),error=form.querySelector('#follow-error'),question=form.querySelector('textarea').value.trim(),version=routeVersion;if(!question)return;busy=true;button.disabled=true;error.textContent='';const partial=document.createElement('div');partial.className='ai-answer notice';form.before(partial);
- try{const data=await streamApi('/api/followup',{record:current.record,question},text=>{if(version===routeVersion)partial.textContent+=text;});if(version!==routeVersion)return;if(!data.answer)throw new Error('模型未配置，请先完成配置');current=data.note;saveRecord();renderResult(document.querySelector('#result'));}catch(e){if(version===routeVersion){error.className='notice error';error.textContent=e.message;}}finally{if(version===routeVersion)busy=false;button.disabled=false;}
+ try{const data=await streamApi('/api/followup',{record:current.record,question},createAnswerPreview(partial,version));if(version!==routeVersion)return;if(!data.answer)throw new Error('模型未配置，请先完成配置');current=data.note;saveRecord();renderResult(document.querySelector('#result'));}catch(e){if(version===routeVersion){error.className='notice error';error.textContent=e.message;}}finally{if(version===routeVersion)busy=false;button.disabled=false;}
 }
 /** 形成可携带的纯文本记录，不导出任何服务端配置。 */
 function exportText(r){return `${r.record.title}\n${r.record.question}\n${new Date(r.created).toLocaleString('zh-CN')}\n\n${JSON.stringify(r.record.facts,null,2)}\n\n${r.answer}\n\n${r.history.map(m=>(m.role==='user'?'我：':'清和：')+m.content).join('\n\n')}`;}

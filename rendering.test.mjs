@@ -36,6 +36,44 @@ test('模型或历史中的危险文本作为纯文本转义，不成为可执�
  assert.ok(!html.includes('<script>'));assert.ok(!html.includes('<img src=x'));assert.match(html,/&lt;script&gt;/);assert.match(html,/&quot;/);
 });
 
+/** 用真实展示函数检查解读排版，以及 Markdown 里的外部 HTML 是否仍被转义。 */
+test('AI 解读将 Markdown 标记排成标题、粗体和列表，保留正文换行',()=>{
+ const start=source.indexOf('function answerInlineHTML(');
+ const end=source.indexOf('/** 为一次流式解读',start);
+ const renderAnswer=vm.runInNewContext(escapeDeclaration+'\n'+source.slice(start,end)+'\nanswerHTML;');
+ const html=renderAnswer('## 1. 逐牌解读\r\n\r\n**当前处境：正义（逆位）**\r\n解读正文。\r\n\r\n- *留意分寸*\r\n- `原始依据`\r\n\r\n2. 第二步\r\n3. 第三步');
+ assert.equal(html,'<h4>1. 逐牌解读</h4><p><strong>当前处境：正义（逆位）</strong>\n解读正文。</p><ul><li><em>留意分寸</em></li><li><code>原始依据</code></li></ul><ol start="2"><li>第二步</li><li>第三步</li></ol>');
+ assert.equal(renderAnswer('旧版解读\n下一行\n\n结尾 5 * 2'),'<p>旧版解读\n下一行</p><p>结尾 5 * 2</p>');
+ assert.equal(renderAnswer('**<span class="highlight">解读</span>**'),'<p><strong>&lt;span class=&quot;highlight&quot;&gt;解读&lt;/span&gt;</strong></p>');
+});
+
+/** 按帧推进实际流式回调，检查标记分片和离开页面后的迟到更新。 */
+test('流式解读跨分片渲染标题和粗体，跳页后丢弃预览更新',()=>{
+ const start=source.indexOf('function answerInlineHTML(');
+ const end=source.indexOf('/** 展示原盘',start);
+ const frames=[],target={innerHTML:'',isConnected:true};
+ const context=vm.createContext({routeVersion:1,requestAnimationFrame:fn=>frames.push(fn),target});
+ const preview=vm.runInContext(escapeDeclaration+'\n'+source.slice(start,end)+'\ncreateAnswerPreview(target,1);',context);
+ preview('#');
+ frames.shift()();
+ assert.equal(target.innerHTML,'');
+ preview('# 逐牌解读\n');
+ preview('**当前');
+ assert.equal(frames.length,1);
+ frames.shift()();
+ assert.equal(target.innerHTML,'<h4>逐牌解读</h4><p>当前</p>');
+ preview('处境*');
+ frames.shift()();
+ assert.equal(target.innerHTML,'<h4>逐牌解读</h4><p>当前处境</p>');
+ preview('*');
+ frames.shift()();
+ assert.equal(target.innerHTML,'<h4>逐牌解读</h4><p><strong>当前处境</strong></p>');
+ preview('\n离开页面后的分片');
+ context.routeVersion++;
+ frames.shift()();
+ assert.equal(target.innerHTML,'<h4>逐牌解读</h4><p><strong>当前处境</strong></p>');
+});
+
 test('星座展示双方元素、模式及建议，旧 Offer 依据保留且危险内容转义',()=>{
  const facts=prepare({tool:'zodiac',signA:'cancer',signB:'taurus',question:'如何相处？'}).facts;
  const html=render(facts);
